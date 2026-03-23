@@ -1,0 +1,41 @@
+{
+  "name": "gmkill",
+  "version": "0.1.0",
+  "description": "Interactive CLI to detect and clean Maven target/ and Gradle build/ folders",
+  "type": "module",
+  "bin": {
+    "build-kill": "./dist/index.js"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "dev": "tsx src/index.tsx",
+    "build": "tsc --project tsconfig.build.json",
+    "postbuild": "node -e \"import('fs').then(fs => { const f='dist/index.js'; const c=fs.readFileSync(f,'utf8'); if(!c.startsWith('#!/usr/bin/env node')) fs.writeFileSync(f,'#!/usr/bin/env node\\n'+c); })\""
+  },
+  "dependencies": {
+    "@inkjs/ui": "2.0.0",
+    "fast-glob": "3.3.3",
+    "ink": "6.8.0",
+    "react": "19.2.4"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/react": "19.2.14",
+    "tsx": "^4.21.0",
+    "typescript": "5.9.3"
+  },
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "cli",
+    "maven",
+    "gradle",
+    "build",
+    "clean"
+  ],
+  "license": "MIT",
+  "packageManager": "npm@11.4.2+sha512.f90c1ec8b207b625d6edb6693aef23dacb39c38e4217fe8c46a973f119cab392ac0de23fe3f07e583188dae9fd9108b3845ad6f525b598742bd060ebad60bff3"
+}
