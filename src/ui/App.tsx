@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Box, Static, Text, useApp, useInput } from 'ink';
+import { Spinner } from '@inkjs/ui';
 import { Scanner } from '../core/scanner.js';
 import { calculateSize } from '../core/size.js';
 import { cleanProjects } from '../core/cleaner.js';
@@ -26,7 +27,6 @@ export const App: React.FC<AppProps> = ({ onSpaceFreed }) => {
   const [cleanResults, setCleanResults] = useState<ExtendedCleanResult[]>([]);
   const [isCleaning, setIsCleaning] = useState(false);
 
-  // Initialize Scanner on mount
   useEffect(() => {
     const scanner = new Scanner();
 
@@ -95,7 +95,6 @@ export const App: React.FC<AppProps> = ({ onSpaceFreed }) => {
           );
         })
         .catch((err) => {
-          // Log to development file and ensure spinner stops
           const msg = `Failed to size submodule ${buildPath} of ${parentId}`;
           import('./logger.js').then(({ logger }) => logger.error(msg, err));
           setProjects((prev) =>
@@ -210,7 +209,7 @@ export const App: React.FC<AppProps> = ({ onSpaceFreed }) => {
             return (
               <Box key={result.uniqueKey}>
                 <Box width={3}><Text color="red">✖</Text></Box>
-                <Box><Text color="red" wrap="truncate-end">{result.project.buildPath}: {result.error.message}</Text></Box>
+                <Box><Text color="red" wrap="truncate-end">{result.project.buildPath ?? result.project.rootPath}: {result.error.message}</Text></Box>
               </Box>
             );
           }
@@ -224,8 +223,12 @@ export const App: React.FC<AppProps> = ({ onSpaceFreed }) => {
         }}
       </Static>
 
-      {/* Hide the interactive UI if we are in the cleaning phase to prevent accidental keystrokes */}
-      {!isCleaning && (
+      {/* Show spinner while cleaning to prevent blank screen and accidental keystrokes */}
+      {isCleaning ? (
+        <Box marginTop={1} paddingX={2}>
+          <Spinner label="Cleaning selected projects…" />
+        </Box>
+      ) : (
         <Box flexDirection="column" paddingX={1}>
           <ProjectList
             projects={projects}
@@ -246,9 +249,9 @@ export const App: React.FC<AppProps> = ({ onSpaceFreed }) => {
             onCancel={handleConfirmCancel}
           />
 
-          <StatusBar 
-            totalFreed={totalSelectedSpace} 
-            confirmOpen={confirmOpen} 
+          <StatusBar
+            selectedSpace={totalSelectedSpace}
+            confirmOpen={confirmOpen}
           />
         </Box>
       )}

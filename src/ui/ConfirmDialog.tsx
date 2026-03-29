@@ -35,23 +35,21 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   }
 
   return (
-    <Box marginTop={1} padding={1} borderStyle="round" borderColor="red" flexDirection="column">
-      <Text bold color="red">
-        ⚠ DIRECTORY DELETION WARNING
-      </Text>
-      <Box marginTop={1}>
+    <Box marginTop={1} paddingX={1} paddingY={0} borderStyle="round" borderColor="yellow" flexDirection="column">
+      <Box gap={1}>
+        <Text color="yellow">⚠</Text>
         <Text>
-          You are about to completely delete the build folders of{' '}
-          <Text bold color="white">{selectedCount}</Text> projects.
+          Delete build folders of{' '}
+          <Text bold color="white">{selectedCount}</Text>
+          {selectedCount === 1 ? ' project' : ' projects'}?{' '}
+          <Text dimColor>({formatBytes(totalSpace)})</Text>
         </Text>
       </Box>
-      <Box>
-        <Text>
-          Estimated space to be freed: <Text bold color="green">{formatBytes(totalSpace)}</Text>
-        </Text>
-      </Box>
-      <Box marginTop={1}>
-        <Text dimColor>Proceed? (Y/Enter to confirm, N/Esc to cancel)</Text>
+      <Box marginLeft={2}>
+        <Text bold color="green">Y/Enter</Text>
+        <Text dimColor> to confirm  </Text>
+        <Text bold color="red">N/Esc</Text>
+        <Text dimColor> to cancel</Text>
       </Box>
     </Box>
   );

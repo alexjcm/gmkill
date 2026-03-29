@@ -1,6 +1,5 @@
 import os from 'node:os';
 import path from 'node:path';
-import { truncatePath } from '../utils/format.js';
 import { SUPPORTED_BUILD_SYSTEMS } from './constants.js';
 import type { BuildType } from './types.js';
 
@@ -31,13 +30,6 @@ export function replaceHomeWithTilde(p: string): string {
     : normalized;
 }
 
-/**
- * Returns a display-friendly, possibly truncated version of a path.
- */
-export function displayPath(p: string, maxWidth: number = 80): string {
-  const withTilde = replaceHomeWithTilde(p);
-  return truncatePath(withTilde, maxWidth);
-}
 
 /**
  * Constructs the absolute path to the build output folder of a project.

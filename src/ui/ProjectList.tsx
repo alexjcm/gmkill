@@ -4,6 +4,7 @@ import { Spinner } from '@inkjs/ui';
 import { ProjectItem } from './ProjectItem.js';
 import { formatBytes } from '../utils/format.js';
 import { EXIT_CODES } from '../core/constants.js';
+import { calcPathWidth } from './columns.js';
 import type { Project, ScanStatus } from '../core/types.js';
 
 interface ProjectListProps {
@@ -33,13 +34,8 @@ export const ProjectList: React.FC<ProjectListProps> = ({
   const columns = stdout?.columns ?? 80;
   const [cursor, setCursor] = useState(0);
 
-  // Column widths (must match ProjectItem)
-  const COL_CHECK = 3;
-  const COL_MODULES = 8;
-  const COL_SIZE = 15;
-  const MIN_PATH_WIDTH = 40;
-
-  const maxPathWidth = Math.max(MIN_PATH_WIDTH, columns - (COL_CHECK + COL_MODULES + COL_SIZE + 5));
+  // Compute once here and pass down — avoids N useStdout listeners in ProjectItem rows.
+  const maxPathWidth = calcPathWidth(columns);
 
   // Maximum number of items to display on screen
   const visibleCount = Math.max(5, rows - 10);
@@ -92,6 +88,8 @@ export const ProjectList: React.FC<ProjectListProps> = ({
 
   const visibleProjects = projects.slice(startIndex, startIndex + visibleCount);
   const isScanning = status === 'scanning';
+  // Only show total once at least one size has been resolved
+  const showTotal = totalLiberable > 0;
 
   return (
     <Box flexDirection="column" marginTop={1}>
@@ -99,7 +97,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
       <Box paddingX={1} marginBottom={1}>
         {projects.length === 0 && isScanning ? (
           <Box marginLeft={1}>
-            <Spinner label="Scanning for Gradle/Maven projects 2..." />
+            <Spinner label="Scanning for Gradle/Maven projects..." />
           </Box>
         ) : projects.length === 0 && status === 'done' ? (
           <Box borderStyle="round" borderColor="yellow" padding={1} width="100%">
@@ -108,17 +106,21 @@ export const ProjectList: React.FC<ProjectListProps> = ({
         ) : (
           <Box flexDirection="row" justifyContent="space-between" flexGrow={1}>
             <Box>
-              <Text bold>Found {projects.length} project(s)</Text>
+              <Text bold>
+                Found {projects.length} {projects.length === 1 ? 'project' : 'projects'}
+              </Text>
               {isScanning && (
                 <Box marginLeft={2}>
                   <Spinner label="Scanning..." />
                 </Box>
               )}
             </Box>
-            <Box>
-              <Text dimColor>Total Liberable: </Text>
-              <Text color="cyan" bold>{formatBytes(totalLiberable)}</Text>
-            </Box>
+            {showTotal && (
+              <Box>
+                <Text dimColor>Total Liberable: </Text>
+                <Text color="cyan" bold>{formatBytes(totalLiberable)}</Text>
+              </Box>
+            )}
           </Box>
         )}
       </Box>
@@ -127,10 +129,10 @@ export const ProjectList: React.FC<ProjectListProps> = ({
       {projects.length > 0 && (
         <Box paddingX={1} flexDirection="column">
           <Box>
-            <Box width={COL_CHECK} />
+            <Box width={3} />
             <Box width={maxPathWidth} flexGrow={1} marginRight={2}><Text color="gray" bold>PROJECT (TYPE)</Text></Box>
-            <Box width={COL_MODULES} marginRight={1}><Text color="gray" bold>MODULES</Text></Box>
-            <Box width={COL_SIZE} justifyContent="flex-end"><Text color="gray" bold>SIZE</Text></Box>
+            <Box width={8} marginRight={1}><Text color="gray" bold>MODULES</Text></Box>
+            <Box width={15} justifyContent="flex-end"><Text color="gray" bold>SIZE</Text></Box>
           </Box>
           {/* Subtle separator */}
           <Box marginTop={0} marginBottom={0}>
@@ -149,6 +151,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
               project={project}
               isSelected={selectedIds.has(project.id)}
               isFocused={isActive && globalIndex === activeCursor}
+              maxPathWidth={maxPathWidth}
             />
           );
         })}

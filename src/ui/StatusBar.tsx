@@ -3,29 +3,28 @@ import { Box, Text } from 'ink';
 import { formatBytes } from '../utils/format.js';
 
 interface StatusBarProps {
-  totalFreed: number;
+  selectedSpace: number;
   confirmOpen: boolean;
 }
 
-export const StatusBar: React.FC<StatusBarProps> = ({ totalFreed, confirmOpen }) => {
+export const StatusBar: React.FC<StatusBarProps> = ({ selectedSpace, confirmOpen }) => {
   return (
     <Box marginTop={1} flexDirection="column">
       <Box paddingX={1} backgroundColor="gray">
         <Box flexGrow={1} gap={2}>
           <Box>
             <Text color="black" bold>{' Selected: '}</Text>
-            <Text color="green" bold>{formatBytes(totalFreed)}</Text>
+            <Text color="green" bold>{formatBytes(selectedSpace)}</Text>
           </Box>
         </Box>
 
         <Box>
           {confirmOpen ? (
-            <Text color="black">
-              <Text bold>ENTER</Text> confirm • <Text bold>ESC</Text> cancel
-            </Text>
+            <Text color="black" dimColor>Waiting for confirmation…</Text>
           ) : (
             <Text color="black">
-              <Text bold>↑↓</Text> move • <Text bold>SPACE/ENTER</Text> select •{' '}
+              <Text bold>↑↓/jk</Text> move • <Text bold>g/G</Text> top/bottom •{' '}
+              <Text bold>SPACE</Text> select • <Text bold>a</Text> all •{' '}
               <Text bold>D</Text> delete • <Text bold>Q</Text> quit
             </Text>
           )}

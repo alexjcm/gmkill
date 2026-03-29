@@ -17,8 +17,6 @@ export interface ScannerEvents {
   error: [error: Error];
 }
 
-
-
 /**
  * Scans the user's home directory for JVM projects with existing build folders.
  */
@@ -60,10 +58,17 @@ export class Scanner extends EventEmitter {
         for (const project of results) {
           if (!project) continue;
 
-          // Find if this is a child of any existing root
-          const parent = Array.from(roots.values()).find((r) =>
-            project.rootPath.startsWith(r.rootPath + '/'),
-          );
+          // Find the nearest registered ancestor — O(depth) path-segment walk
+          // instead of O(n_roots) linear scan across all known roots.
+          const parent = (() => {
+            const segments = project.rootPath.split('/');
+            for (let i = segments.length - 1; i > 0; i--) {
+              const candidate = segments.slice(0, i).join('/');
+              const root = roots.get(candidate);
+              if (root !== undefined) return root;
+            }
+            return undefined;
+          })();
 
           if (parent !== undefined) {
             if (project.buildPath !== null) {
@@ -80,7 +85,7 @@ export class Scanner extends EventEmitter {
               } else {
                 // Parent was staged but not emitted yet; now it has a reason to exist!
                 emittedIds.add(parent.id);
-                this.emit('project', { ...parent });
+                this.emit('project', { ...parent, submoduleBuildPaths: [...parent.submoduleBuildPaths] });
               }
             }
           } else {

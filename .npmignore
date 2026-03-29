@@ -1,7 +1,12 @@
 src/
 tsconfig.json
 tsconfig.build.json
+eslint.config.mjs
 .prettierrc
 .eslintrc
 .editorconfig
 plan.md
+*.tgz
+
+# Source maps — not needed by CLI end users
+**/*.map

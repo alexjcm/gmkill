@@ -5,7 +5,6 @@ export const logger = {
   success: (msg: string) => console.log(`✔ ${msg}`),
   warn: (msg: string) => console.warn(`⚠ ${msg}`),
   error: (msg: string, err?: unknown) => {
-    // Only log to file in development mode
     if (process.env['NODE_ENV'] === 'development') {
       const logMsg = `[${new Date().toISOString()}] ✖ ${msg}${err instanceof Error ? `: ${err.message}` : ''}\n`;
       try {
@@ -15,7 +14,6 @@ export const logger = {
       }
     }
     
-    // Original console error (may be hidden by Ink)
     console.error(`✖ ${msg}`);
     if (err instanceof Error) console.error(`  ${err.message}`);
   },

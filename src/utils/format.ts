@@ -1,7 +1,3 @@
-/**
- * Visual helpers with no business logic and no external dependencies.
- */
-
 const BYTES_IN_KB = 1024;
 const BYTES_IN_MB = 1024 * 1024;
 const BYTES_IN_GB = 1024 * 1024 * 1024;
@@ -30,10 +26,6 @@ export function formatBytes(bytes: number): string {
 /**
  * Truncates a path string to fit within `maxWidth` characters,
  * always preserving the final path segment (the project folder name).
- *
- * @example
- * truncatePath('/Users/john/workspace/myapp', 24) // "~/…/workspace/myapp"
- * truncatePath('/Users/john/myapp', 40)            // "~/…/myapp"  (home replaced)
  */
 export function truncatePath(p: string, maxWidth: number): string {
   // Normalize separators for display
@@ -49,11 +41,9 @@ export function truncatePath(p: string, maxWidth: number): string {
   const available = maxWidth - prefix.length - last.length;
 
   if (available <= 0) {
-    // Path segment alone is wider than the terminal — just show the last segment
     return last;
   }
 
-  // Walk backwards from second-to-last segment to fill available space
   const middle: string[] = [];
   for (let i = segments.length - 2; i >= 0; i--) {
     const segment = segments[i] ?? '';

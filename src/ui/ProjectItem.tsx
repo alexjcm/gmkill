@@ -1,36 +1,30 @@
 import React from 'react';
-import { Box, Text, useStdout } from 'ink';
+import { Box, Text } from 'ink';
 import { Spinner } from '@inkjs/ui';
 import { formatBytes } from '../utils/format.js';
 import { replaceHomeWithTilde } from '../core/paths.js';
+import { COL_CHECK, COL_MODULES, COL_SIZE } from './columns.js';
 import type { Project } from '../core/types.js';
 
 interface ProjectItemProps {
   project: Project;
   isSelected: boolean;
   isFocused: boolean;
+  maxPathWidth: number;
 }
 
 export const ProjectItem: React.FC<ProjectItemProps> = ({
   project,
   isSelected,
   isFocused,
+  maxPathWidth,
 }) => {
   const isMaven = project.buildType === 'maven';
   const typeLabel = isMaven ? 'M' : 'G';
   const typeColor = isMaven ? 'cyan' : 'green';
-  const { stdout } = useStdout();
-  const columns = stdout?.columns ?? 80;
-
-  // Column widths (must match headers in ProjectList)
-  const COL_CHECK = 3;
-  const COL_MODULES = 8;
-  const COL_SIZE = 15;
-  const MIN_PATH_WIDTH = 40;
-
-  const maxPathWidth = Math.max(MIN_PATH_WIDTH, columns - (COL_CHECK + COL_MODULES + COL_SIZE + 5));
 
   const rowColor = isSelected ? 'green' : (isFocused ? 'white' : undefined);
+  const moduleCount = project.submoduleBuildPaths.length + (project.buildPath ? 1 : 0);
 
   return (
     <Box>
@@ -57,9 +51,9 @@ export const ProjectItem: React.FC<ProjectItemProps> = ({
 
       <Box width={COL_MODULES} flexShrink={0} marginRight={1}>
         {/* Only show count if it's a multi-module project (Total > 1) */}
-        {(project.submoduleBuildPaths.length + (project.buildPath ? 1 : 0)) > 1 && (
+        {moduleCount > 1 && (
           <Text dimColor={!isSelected} color={isSelected ? 'green' : 'cyan'}>
-            {`${project.submoduleBuildPaths.length + (project.buildPath ? 1 : 0)} mods`}
+            {`${moduleCount} mods`}
           </Text>
         )}
       </Box>

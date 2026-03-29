@@ -4,7 +4,6 @@ export type BuildType = 'gradle' | 'maven';
  * Strategy configuration for detecting and handling a build system.
  */
 export interface BuildSystemConfig {
-  /** Identifier of the build system */
   readonly type: BuildType;
   /** Primary identifier (if this exists, we assume this build system type) */
   readonly primaryIndicator: string;
@@ -25,18 +24,13 @@ export interface Project {
   /** Absolute path to the build folder (target/ or build/). Null if it's a wrapper project. */
   readonly buildPath: string | null;
   readonly buildType: BuildType;
-  /** Absolute paths to all submodule build folders (e.g. target/ or build/) */
   readonly submoduleBuildPaths: string[];
   /**
    * Size of the build folder in bytes.
-   * `null` while the size is still being calculated or if an error occurred.
    */
   size: number | null;
 }
 
-/**
- * Current state of the background scanner.
- */
 export type ScanStatus = 'scanning' | 'done';
 
 /**

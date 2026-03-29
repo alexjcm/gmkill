@@ -39,10 +39,12 @@ function printHelp() {
 
   Shortcuts (when running):
     ↑/k, ↓/j      Navigate project list
-    SPACE         Select/Deselect project for cleanup
-    a             Select/Deselect all projects
-    D             Initiate deletion of selected projects
-    Q, ESC        Quit the application
+    g / G          Jump to top / bottom
+    SPACE          Select/Deselect project (advances cursor)
+    ENTER          Select/Deselect project (stays on row)
+    a              Select/Deselect all projects
+    D              Initiate deletion of selected projects
+    Q, ESC         Quit the application
   `);
 }
 
@@ -95,10 +97,8 @@ async function main() {
 
   await waitUntilExit();
 
-  // Print final feedback to the user
   console.log(`\n  Space released: ${formatBytes(totalFreedInSession)}\n`);
 
-  // Fallback cleanup purely for UX (restoring cursor) in case of hard crash
   process.on('exit', () => {
     process.stdout.write('\x1B[?25h');
   });
