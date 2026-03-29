@@ -10,14 +10,20 @@ import { ConfirmDialog } from './ConfirmDialog.js';
 import { formatBytes } from '../utils/format.js';
 import type { Project, ScanStatus, CleanResult } from '../core/types.js';
 
-export const App: React.FC = () => {
+interface AppProps {
+  onSpaceFreed: (bytes: number) => void;
+}
+
+type ExtendedCleanResult = CleanResult & { uniqueKey: string };
+
+export const App: React.FC<AppProps> = ({ onSpaceFreed }) => {
   const { exit } = useApp();
   const [projects, setProjects] = useState<Project[]>([]);
   const [scanStatus, setScanStatus] = useState<ScanStatus>('scanning');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [confirmOpen, setConfirmOpen] = useState(false);
   
-  const [cleanResults, setCleanResults] = useState<CleanResult[]>([]);
+  const [cleanResults, setCleanResults] = useState<ExtendedCleanResult[]>([]);
   const [isCleaning, setIsCleaning] = useState(false);
 
   // Initialize Scanner on mount
@@ -25,30 +31,84 @@ export const App: React.FC = () => {
     const scanner = new Scanner();
 
     scanner.on('project', (project: Project) => {
-      setProjects((prev) => [...prev, project]);
+      setProjects((prev) => {
+        const exists = prev.some((p) => p.id === project.id);
+        if (exists) return prev;
+        return [...prev, project];
+      });
 
-      // Fire async size calculation immediately for the root (if any) + all submodules
-      const pathsToCalculate = [...project.submoduleBuildPaths];
+      // Calculate size for the project's own build folder
       if (project.buildPath !== null) {
-        pathsToCalculate.push(project.buildPath);
+        calculateSize(project.buildPath)
+          .then((size) => {
+            setProjects((prev) =>
+              prev.map((p) =>
+                p.id === project.id ? { ...p, size: (p.size ?? 0) + (size ?? 0) } : p,
+              ),
+            );
+          })
+          .catch((err) => {
+            const msg = `Failed to size root for ${project.rootPath}`;
+            import('./logger.js').then(({ logger }) => logger.error(msg, err));
+            setProjects((prev) =>
+              prev.map((p) => (p.id === project.id ? { ...p, size: p.size ?? 0 } : p)),
+            );
+          });
       }
-      Promise.all(pathsToCalculate.map(p => calculateSize(p)))
-        .then((sizes) => {
-          const validSizes = sizes.filter((s): s is number => s !== null);
-          const total = validSizes.length > 0 ? validSizes.reduce((a, b) => a + b, 0) : null;
-          
+
+      // ALSO calculate size for any submodules already present
+      for (const subPath of project.submoduleBuildPaths) {
+        calculateSize(subPath)
+          .then((size) => {
+            setProjects((prev) =>
+              prev.map((p) =>
+                p.id === project.id ? { ...p, size: (p.size ?? 0) + (size ?? 0) } : p,
+              ),
+            );
+          })
+          .catch((err) => {
+            const msg = `Failed to size initial submodule ${subPath} of ${project.id}`;
+            import('./logger.js').then(({ logger }) => logger.error(msg, err));
+            setProjects((prev) =>
+              prev.map((p) => (p.id === project.id ? { ...p, size: p.size ?? 0 } : p)),
+            );
+          });
+      }
+    });
+
+    scanner.on('submodule', ({ parentId, buildPath }) => {
+      setProjects((prev) =>
+        prev.map((p) =>
+          p.id === parentId
+            ? { ...p, submoduleBuildPaths: [...p.submoduleBuildPaths, buildPath] }
+            : p,
+        ),
+      );
+
+      // Start size calculation for the new submodule
+      calculateSize(buildPath)
+        .then((size) => {
           setProjects((prev) =>
-            prev.map((p) => (p.id === project.id ? { ...p, size: total } : p))
+            prev.map((p) =>
+              p.id === parentId ? { ...p, size: (p.size ?? 0) + (size ?? 0) } : p,
+            ),
           );
         })
-        // Ignored or logged to a file if needed. We leave size as null.
+        .catch((err) => {
+          // Log to development file and ensure spinner stops
+          const msg = `Failed to size submodule ${buildPath} of ${parentId}`;
+          import('./logger.js').then(({ logger }) => logger.error(msg, err));
+          setProjects((prev) =>
+            prev.map((p) => (p.id === parentId ? { ...p, size: p.size ?? 0 } : p)),
+          );
+        });
     });
 
     scanner.on('done', () => {
       setScanStatus('done');
     });
 
-    scanner.on('error', (err) => {
+    scanner.on('error', (_err) => {
       setScanStatus('done');
     });
 
@@ -103,9 +163,13 @@ export const App: React.FC = () => {
     const selectedProjects = projects.filter((p) => selectedIds.has(p.id));
     const results = await cleanProjects(selectedProjects);
     
+    // Calculate total freed in this batch and report it to the caller
+    const freedInBatch = results.reduce((acc, r) => acc + (r.freed ?? 0), 0);
+    onSpaceFreed(freedInBatch);
+    
     // Append to static logs with a unique key to prevent Ink duplicate key warnings
     const resultsWithKeys = results.map(r => ({ ...r, uniqueKey: r.project.id + '-' + Math.random().toString(36).substring(2) }));
-    setCleanResults(prev => [...prev, ...(resultsWithKeys as any)]);
+    setCleanResults(prev => [...prev, ...resultsWithKeys]);
     
     // Remove successful ones from the list
     const successIds = new Set(results.filter(r => r.freed !== null).map(r => r.project.id));
@@ -120,7 +184,7 @@ export const App: React.FC = () => {
     });
 
     setIsCleaning(false);
-  }, [projects, selectedIds]);
+  }, [projects, selectedIds, onSpaceFreed]);
 
   // Derived state
   const totalSelectedSpace = useMemo(() => {
@@ -133,11 +197,15 @@ export const App: React.FC = () => {
     return total;
   }, [projects, selectedIds]);
 
+  const totalLiberableSpace = useMemo(() => {
+    return projects.reduce((acc, p) => acc + (p.size ?? 0), 0);
+  }, [projects]);
+
   // If cleaning is completely done and Ink is unmounting, we just show the static results
   return (
     <>
       <Static items={cleanResults}>
-        {(result: any) => {
+        {(result: ExtendedCleanResult) => {
           if (result.error) {
             return (
               <Box key={result.uniqueKey}>
@@ -167,6 +235,7 @@ export const App: React.FC = () => {
             onToggleAll={handleToggleAll}
             onDeleteRequested={handleDeleteRequested}
             isActive={!confirmOpen}
+            totalLiberable={totalLiberableSpace}
           />
 
           <ConfirmDialog
@@ -177,7 +246,10 @@ export const App: React.FC = () => {
             onCancel={handleConfirmCancel}
           />
 
-          <StatusBar totalFreed={totalSelectedSpace} confirmOpen={confirmOpen} />
+          <StatusBar 
+            totalFreed={totalSelectedSpace} 
+            confirmOpen={confirmOpen} 
+          />
         </Box>
       )}
     </>

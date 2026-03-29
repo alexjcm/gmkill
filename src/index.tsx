@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -7,8 +8,8 @@ import { render } from 'ink';
 import { App } from './ui/App.js';
 import { logger } from './ui/logger.js';
 import { EXIT_CODES } from './core/constants.js';
+import { formatBytes } from './utils/format.js';
 
-// Get current directory for reading package.json
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 function getVersion(): string {
@@ -24,13 +25,13 @@ function getVersion(): string {
 function printHelp() {
   const v = getVersion();
   console.log(`
-  gmkill v${v}
+  projclean v${v}
 
   Interactive CLI to detect and clean Maven target/ and Gradle build/ folders.
   Scans up to 6 levels deep from your home directory to find valid JVM projects.
 
   Usage:
-    build-kill
+    projclean
 
   Flags:
     --version     Print version and exit
@@ -71,7 +72,7 @@ async function main() {
   }
 
   if (values.version) {
-    logger.info(`gmkill v${getVersion()}`);
+    logger.info(`projclean v${getVersion()}`);
     process.exit(EXIT_CODES.SUCCESS);
   }
 
@@ -82,12 +83,20 @@ async function main() {
 
   checkNodeVersion();
 
-  // Ink handles Ctrl+C when exitOnCtrlC is true. We set it to false and
-  // gracefully tear down manually within App using useApp().exit()
-  render(React.createElement(App), {
+  // Track cumulative space freed across the session
+  let totalFreedInSession = 0;
+  const handleSpaceFreed = (bytes: number) => {
+    totalFreedInSession += bytes;
+  };
+
+  const { waitUntilExit } = render(React.createElement(App, { onSpaceFreed: handleSpaceFreed }), {
     exitOnCtrlC: false,
-    incrementalRendering: true,
   });
+
+  await waitUntilExit();
+
+  // Print final feedback to the user
+  console.log(`\n  Space released: ${formatBytes(totalFreedInSession)}\n`);
 
   // Fallback cleanup purely for UX (restoring cursor) in case of hard crash
   process.on('exit', () => {

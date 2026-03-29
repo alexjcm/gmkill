@@ -3,7 +3,7 @@ import type { BuildSystemConfig } from './types.js';
 /**
  * Maximum directory depth to scan from the user's home directory.
  */
-export const SCAN_DEPTH = 6;
+export const SCAN_DEPTH = 8;
 
 /**
  * Registry of supported build systems. Order determines precedence.
@@ -39,9 +39,6 @@ export const IGNORED_DIRS: ReadonlySet<string> = new Set([
   'build',
 ]);
 
-/**
- * Standardized exit codes used across the CLI to eliminate magic numbers.
- */
 export const EXIT_CODES = {
   SUCCESS: 0,
   FATAL_ERROR: 1,

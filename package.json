@@ -1,18 +1,25 @@
 {
-  "name": "gmkill",
-  "version": "0.1.0",
-  "description": "Interactive CLI to detect and clean Maven target/ and Gradle build/ folders",
+  "name": "projclean",
+  "version": "1.0.0",
+  "description": "Interactive CLI to detect and clean Gradle build/ and Maven target/ folders",
+  "author": "alexjcm",
+  "license": "MIT",
+  "homepage": "https://github.com/alexjcm/projclean#readme",
   "type": "module",
   "bin": {
-    "build-kill": "./dist/index.js"
+    "projclean": "dist/index.js"
   },
   "engines": {
     "node": ">=24.0.0"
   },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org"
+  },
   "scripts": {
     "dev": "tsx src/index.tsx",
-    "build": "tsc --project tsconfig.build.json",
-    "postbuild": "node -e \"import('fs').then(fs => { const f='dist/index.js'; const c=fs.readFileSync(f,'utf8'); if(!c.startsWith('#!/usr/bin/env node')) fs.writeFileSync(f,'#!/usr/bin/env node\\n'+c); })\""
+    "lint": "eslint .",
+    "prebuild": "rm -rf dist",
+    "build": "tsc -p tsconfig.build.json && chmod +x dist/index.js"
   },
   "dependencies": {
     "@inkjs/ui": "2.0.0",
@@ -21,21 +28,28 @@
     "react": "19.2.4"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/node": "^24.0.0",
     "@types/react": "19.2.14",
+    "eslint": "^10.1.0",
+    "globals": "^17.4.0",
     "tsx": "^4.21.0",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "typescript-eslint": "^8.57.2"
   },
   "files": [
     "dist"
   ],
   "keywords": [
     "cli",
+    "tui",
+    "jvm",
+    "java",
     "maven",
     "gradle",
     "build",
-    "clean"
+    "clean",
+    "disk-space"
   ],
-  "license": "MIT",
   "packageManager": "npm@11.4.2+sha512.f90c1ec8b207b625d6edb6693aef23dacb39c38e4217fe8c46a973f119cab392ac0de23fe3f07e583188dae9fd9108b3845ad6f525b598742bd060ebad60bff3"
 }

@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { Box, Text, useInput, useApp } from 'ink';
+import React, { useState } from 'react';
+import { Box, Text, useInput, useApp, useStdout } from 'ink';
 import { Spinner } from '@inkjs/ui';
 import { ProjectItem } from './ProjectItem.js';
+import { formatBytes } from '../utils/format.js';
 import { EXIT_CODES } from '../core/constants.js';
 import type { Project, ScanStatus } from '../core/types.js';
 
@@ -13,6 +14,7 @@ interface ProjectListProps {
   onToggleAll: () => void;
   onDeleteRequested: () => void;
   isActive: boolean;
+  totalLiberable: number;
 }
 
 export const ProjectList: React.FC<ProjectListProps> = ({
@@ -23,20 +25,26 @@ export const ProjectList: React.FC<ProjectListProps> = ({
   onToggleAll,
   onDeleteRequested,
   isActive,
+  totalLiberable,
 }) => {
   const { exit } = useApp();
-  const rows = process.stdout.rows ?? 24;
+  const { stdout } = useStdout();
+  const rows = stdout?.rows ?? 24;
+  const columns = stdout?.columns ?? 80;
   const [cursor, setCursor] = useState(0);
 
-  // Maximum number of items to display on screen
-  const visibleCount = Math.max(5, rows - 7);
+  // Column widths (must match ProjectItem)
+  const COL_CHECK = 3;
+  const COL_MODULES = 8;
+  const COL_SIZE = 15;
+  const MIN_PATH_WIDTH = 40;
 
-  // Clamp cursor if projects list shrinks/changes unexpectedly
-  useEffect(() => {
-    if (projects.length > 0 && cursor >= projects.length) {
-      setCursor(projects.length - 1);
-    }
-  }, [projects.length, cursor]);
+  const maxPathWidth = Math.max(MIN_PATH_WIDTH, columns - (COL_CHECK + COL_MODULES + COL_SIZE + 5));
+
+  // Maximum number of items to display on screen
+  const visibleCount = Math.max(5, rows - 10);
+
+  const activeCursor = projects.length === 0 ? 0 : Math.min(cursor, projects.length - 1);
 
   useInput(
     (input, key) => {
@@ -50,19 +58,19 @@ export const ProjectList: React.FC<ProjectListProps> = ({
         setCursor(0);
       } else if (input === 'G') {
         setCursor(projects.length - 1);
-      } else if (input === ' ') {
-        const p = projects[cursor];
+      } else if (input === ' ' || key.return) {
+        const p = projects[activeCursor];
         if (p) onToggleSelection(p.id);
-        setCursor((c) => Math.min(projects.length - 1, c + 1)); // auto advance
+        if (input === ' ') {
+          setCursor((c) => Math.min(projects.length - 1, c + 1));
+        }
       } else if (input === 'a') {
         onToggleAll();
       } else if (input === 'd' || input === 'D') {
-        // Only trigger delete if items are selected
         if (selectedIds.size > 0) {
           onDeleteRequested();
         }
       } else if (input === 'q' || input === 'Q') {
-        // Clean exit
         process.exitCode = EXIT_CODES.SUCCESS;
         exit();
       }
@@ -74,8 +82,8 @@ export const ProjectList: React.FC<ProjectListProps> = ({
   let startIndex = 0;
   if (projects.length > visibleCount) {
     // Keep cursor roughly in the middle if possible
-    startIndex = Math.max(0, cursor - Math.floor(visibleCount / 2));
-    
+    startIndex = Math.max(0, activeCursor - Math.floor(visibleCount / 2));
+
     // Don't scroll past the bottom
     if (startIndex + visibleCount > projects.length) {
       startIndex = projects.length - visibleCount;
@@ -83,50 +91,68 @@ export const ProjectList: React.FC<ProjectListProps> = ({
   }
 
   const visibleProjects = projects.slice(startIndex, startIndex + visibleCount);
-
-  if (projects.length === 0 && status === 'scanning') {
-    return (
-      <Box marginTop={1} marginLeft={2}>
-        <Spinner label="Scanning for Maven/Gradle projects..." />
-      </Box>
-    );
-  }
-
-  if (projects.length === 0 && status === 'done') {
-    return (
-      <Box marginTop={1} marginLeft={2}>
-        <Text color="yellow">No cleanable JVM projects found in home directory.</Text>
-      </Box>
-    );
-  }
+  const isScanning = status === 'scanning';
 
   return (
     <Box flexDirection="column" marginTop={1}>
-      <Box marginBottom={1} marginLeft={1}>
-        <Text bold>Found {projects.length} project(s)</Text>
-        {status === 'scanning' && (
-          <Box marginLeft={2}>
-            <Spinner label="Scanning..." />
+      {/* 1. Summary Header & Total */}
+      <Box paddingX={1} marginBottom={1}>
+        {projects.length === 0 && isScanning ? (
+          <Box marginLeft={1}>
+            <Spinner label="Scanning for Gradle/Maven projects 2..." />
+          </Box>
+        ) : projects.length === 0 && status === 'done' ? (
+          <Box borderStyle="round" borderColor="yellow" padding={1} width="100%">
+            <Text color="yellow">No cleanable JVM projects found in home directory.</Text>
+          </Box>
+        ) : (
+          <Box flexDirection="row" justifyContent="space-between" flexGrow={1}>
+            <Box>
+              <Text bold>Found {projects.length} project(s)</Text>
+              {isScanning && (
+                <Box marginLeft={2}>
+                  <Spinner label="Scanning..." />
+                </Box>
+              )}
+            </Box>
+            <Box>
+              <Text dimColor>Total Liberable: </Text>
+              <Text color="cyan" bold>{formatBytes(totalLiberable)}</Text>
+            </Box>
           </Box>
         )}
       </Box>
 
-      {visibleProjects.map((project, i) => {
-        const globalIndex = startIndex + i;
-        return (
-          <ProjectItem
-            key={project.id}
-            project={project}
-            isSelected={selectedIds.has(project.id)}
-            isFocused={globalIndex === cursor}
-          />
-        );
-      })}
-
-      {/* Padding to keep UI stable if fewer items than visibleCount */}
-      {visibleProjects.length < visibleCount && (
-        <Box height={visibleCount - visibleProjects.length} />
+      {/* 2. Column Headers */}
+      {projects.length > 0 && (
+        <Box paddingX={1} flexDirection="column">
+          <Box>
+            <Box width={COL_CHECK} />
+            <Box width={maxPathWidth} flexGrow={1} marginRight={2}><Text color="gray" bold>PROJECT (TYPE)</Text></Box>
+            <Box width={COL_MODULES} marginRight={1}><Text color="gray" bold>MODULES</Text></Box>
+            <Box width={COL_SIZE} justifyContent="flex-end"><Text color="gray" bold>SIZE</Text></Box>
+          </Box>
+          {/* Subtle separator */}
+          <Box marginTop={0} marginBottom={0}>
+            <Text dimColor>{"─".repeat(Math.min(columns - 2, 100))}</Text>
+          </Box>
+        </Box>
       )}
+
+      {/* 3. Project List */}
+      <Box flexDirection="column" paddingX={1} minHeight={visibleCount}>
+        {visibleProjects.map((project, i) => {
+          const globalIndex = startIndex + i;
+          return (
+            <ProjectItem
+              key={project.id}
+              project={project}
+              isSelected={selectedIds.has(project.id)}
+              isFocused={isActive && globalIndex === activeCursor}
+            />
+          );
+        })}
+      </Box>
     </Box>
   );
 };

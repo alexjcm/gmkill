@@ -11,13 +11,11 @@ export const StatusBar: React.FC<StatusBarProps> = ({ totalFreed, confirmOpen })
   return (
     <Box marginTop={1} flexDirection="column">
       <Box paddingX={1} backgroundColor="gray">
-        <Box flexGrow={1}>
-          <Text color="black" bold>
-            {' Total space selected: '}
-          </Text>
-          <Text color="green" bold>
-            {formatBytes(totalFreed)}
-          </Text>
+        <Box flexGrow={1} gap={2}>
+          <Box>
+            <Text color="black" bold>{' Selected: '}</Text>
+            <Text color="green" bold>{formatBytes(totalFreed)}</Text>
+          </Box>
         </Box>
 
         <Box>
@@ -27,7 +25,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({ totalFreed, confirmOpen })
             </Text>
           ) : (
             <Text color="black">
-              <Text bold>↑↓</Text> move • <Text bold>SPACE</Text> select •{' '}
+              <Text bold>↑↓</Text> move • <Text bold>SPACE/ENTER</Text> select •{' '}
               <Text bold>D</Text> delete • <Text bold>Q</Text> quit
             </Text>
           )}

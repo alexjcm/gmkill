@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Text } from 'ink';
+import { Box, Text, useStdout } from 'ink';
 import { Spinner } from '@inkjs/ui';
 import { formatBytes } from '../utils/format.js';
 import { replaceHomeWithTilde } from '../core/paths.js';
@@ -16,66 +16,64 @@ export const ProjectItem: React.FC<ProjectItemProps> = ({
   isSelected,
   isFocused,
 }) => {
-  const columns = process.stdout.columns ?? 80;
-
   const isMaven = project.buildType === 'maven';
+  const typeLabel = isMaven ? 'M' : 'G';
   const typeColor = isMaven ? 'cyan' : 'green';
-  const typeLabel = isMaven ? 'Mvn' : 'Grd';
+  const { stdout } = useStdout();
+  const columns = stdout?.columns ?? 80;
 
-  // 1. Selector area: " " vs "●" (2 chars)
-  // 2. Type area: (Mvn) or (Grd) (5 chars)
-  // 3. Submodule count area: [+N] if applicable (up to 5 chars)
-  // 4. Size area: " 150.0 MB" (up to 10 chars)
-  // 5. Margin spacing between items (1-3 chars)
-  // Total non-path space roughly 25-30 chars.
-  
-  // Safe width for the path box: terminal width - ~30 chars
-  // Minimum width defined to avoid negative widths on extremely small terminals
-  const minPathWidth = 30; // 15 (size) + 5 (type) + 5 (check) + 5 (submods)
-  const maxPathWidth = Math.max(minPathWidth, columns - 30);
+  // Column widths (must match headers in ProjectList)
+  const COL_CHECK = 3;
+  const COL_MODULES = 8;
+  const COL_SIZE = 15;
+  const MIN_PATH_WIDTH = 40;
+
+  const maxPathWidth = Math.max(MIN_PATH_WIDTH, columns - (COL_CHECK + COL_MODULES + COL_SIZE + 5));
+
+  const rowColor = isSelected ? 'green' : (isFocused ? 'white' : undefined);
 
   return (
     <Box>
-      <Box width={3} flexShrink={0}>
-        <Text color={isSelected ? 'green' : undefined}>
-          {isSelected ? '● ' : '○ '}
+      <Box width={COL_CHECK} flexShrink={0}>
+        <Text color={isSelected ? 'green' : (isFocused ? 'white' : undefined)} bold={isSelected || isFocused}>
+          {isSelected ? '● ' : (isFocused ? '› ' : '○ ')}
         </Text>
       </Box>
 
-      <Box width={6} flexShrink={0}>
-        <Text color={typeColor} dimColor={!isFocused}>
-          ({typeLabel})
-        </Text>
-      </Box>
-
-      <Box width={maxPathWidth} flexGrow={1} marginRight={2}>
+      <Box width={maxPathWidth} flexGrow={1} marginRight={2} flexDirection="row">
         <Text
-          dimColor={!isFocused}
+          dimColor={!isFocused && !isSelected}
           underline={isFocused}
-          color={isFocused ? 'white' : undefined}
+          color={rowColor}
           wrap="truncate-end"
+          bold={isSelected}
         >
           {replaceHomeWithTilde(project.rootPath)}
         </Text>
+        <Text color={isSelected ? 'green' : typeColor} dimColor={!isFocused && !isSelected} bold>
+          {`  (${typeLabel})`}
+        </Text>
       </Box>
 
-      <Box width={10} flexShrink={0} marginRight={1}>
-        {project.submoduleBuildPaths.length > 0 && (
-          <Text dimColor color="cyan">
-            [+{project.submoduleBuildPaths.length}]
+      <Box width={COL_MODULES} flexShrink={0} marginRight={1}>
+        {/* Only show count if it's a multi-module project (Total > 1) */}
+        {(project.submoduleBuildPaths.length + (project.buildPath ? 1 : 0)) > 1 && (
+          <Text dimColor={!isSelected} color={isSelected ? 'green' : 'cyan'}>
+            {`${project.submoduleBuildPaths.length + (project.buildPath ? 1 : 0)} mods`}
           </Text>
         )}
       </Box>
 
-      {/* 5. Space Freed (15 chars) */}
-      <Box width={15} flexShrink={0} justifyContent="flex-end">
+      <Box width={COL_SIZE} flexShrink={0} justifyContent="flex-end">
         {project.size === null ? (
           <Box flexDirection="row" gap={1}>
             <Spinner type="dots" />
             <Text color="yellow">sizing</Text>
           </Box>
         ) : (
-          <Text dimColor={!isFocused}>{formatBytes(project.size)}</Text>
+          <Text color={rowColor} dimColor={!isFocused && !isSelected}>
+            {formatBytes(project.size)}
+          </Text>
         )}
       </Box>
     </Box>

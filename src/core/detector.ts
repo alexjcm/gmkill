@@ -14,6 +14,23 @@ async function exists(p: string): Promise<boolean> {
 }
 
 /**
+ * Verifies if a directory contains standard JVM build output subdirectories.
+ * This is a "strict" check to prevent accidental deletion of non-JVM folders.
+ */
+async function isJVMBuildFolder(dir: string, type: BuildType): Promise<boolean> {
+  const subdirs = type === 'gradle' 
+    ? ['classes', 'libs', 'resources', 'tmp', 'kotlin', 'reports', 'intermediates', 'outputs', 'test-results', 'generated']
+    : ['classes', 'generated-sources', 'maven-status', 'surefire-reports', 'maven-archiver', 'test-classes'];
+
+  // Check for the existence of AT LEAST one standard subdirectory
+  // We check up to the first 10 specified folders for high coverage.
+  for (const sub of subdirs) {
+    if (await exists(path.join(dir, sub))) return true;
+  }
+  return false;
+}
+
+/**
  * Attempts to classify and validate a directory as a JVM project.
  */
 export async function detectProject(dir: string): Promise<Project | null> {
@@ -38,9 +55,16 @@ export async function detectProject(dir: string): Promise<Project | null> {
 
   if (buildType === null) return null;
 
-  // Validate build folder existence
+  // Validate build folder existence AND standard contents (safety first!)
   const expectedBuildPath = toBuildPath(dir, buildType);
-  const buildPath = await exists(expectedBuildPath) ? expectedBuildPath : null;
+  let buildPath: string | null = null;
+  
+  if (await exists(expectedBuildPath)) {
+    // Perform a fast heuristic check to ensure it's a real JVM build folder
+    if (await isJVMBuildFolder(expectedBuildPath, buildType)) {
+      buildPath = expectedBuildPath;
+    }
+  }
 
   return {
     id: normalizePath(dir),

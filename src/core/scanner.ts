@@ -7,15 +7,17 @@ import { SCAN_DEPTH, IGNORED_DIRS, SUPPORTED_BUILD_SYSTEMS } from './constants.j
 import type { Project } from './types.js';
 
 export interface ScannerEvents {
-  /** Fired for each root-level project found (after submodule deduplication). */
+  /** Fired for each root-level project found. */
   project: [project: Project];
+  /** Fired when a submodule is found for an already emitted root project. */
+  submodule: [data: { parentId: string; buildPath: string }];
   /** Fired once when the scan is completely finished. */
   done: [];
   /** Fired if an unexpected error occurs during the scan. */
   error: [error: Error];
 }
 
-type MutableProject = { -readonly [K in keyof Project]: Project[K] };
+
 
 /**
  * Scans the user's home directory for JVM projects with existing build folders.
@@ -45,40 +47,56 @@ export class Scanner extends EventEmitter {
       ];
 
       // Sort by path so that parent directories always come before their children.
-      // This is the key invariant that makes O(n) submodule deduplication correct.
       candidateDirs.sort();
 
-      // Detect each candidate (parallel within each batch)
-      const detectedProjects = (
-        await Promise.all(candidateDirs.map((dir) => detectProject(dir)))
-      ).filter((p): p is Project => p !== null);
+      const roots = new Map<string, Project>();
+      const emittedIds = new Set<string>();
 
-      // Deduplicate: emit root projects; increment submoduleCount for children.
-      // Since the list is sorted, a parent always appears before its children.
-      const emittedRoots: MutableProject[] = [];
+      const BATCH_SIZE = 10;
+      for (let i = 0; i < candidateDirs.length; i += BATCH_SIZE) {
+        const batch = candidateDirs.slice(i, i + BATCH_SIZE);
+        const results = await Promise.all(batch.map((dir) => detectProject(dir)));
 
-      for (const project of detectedProjects) {
-        const parent = emittedRoots.find((r) =>
-          project.rootPath.startsWith(r.rootPath + '/'),
-        );
+        for (const project of results) {
+          if (!project) continue;
 
-        if (parent !== undefined) {
-          // This project is a submodule
-          if (project.buildPath !== null) {
-            parent.submoduleBuildPaths.push(project.buildPath);
+          // Find if this is a child of any existing root
+          const parent = Array.from(roots.values()).find((r) =>
+            project.rootPath.startsWith(r.rootPath + '/'),
+          );
+
+          if (parent !== undefined) {
+            if (project.buildPath !== null) {
+              // Deduplicate build paths within a project
+              if (!parent.submoduleBuildPaths.includes(project.buildPath)) {
+                parent.submoduleBuildPaths.push(project.buildPath);
+              }
+              
+              if (emittedIds.has(parent.id)) {
+                this.emit('submodule', {
+                  parentId: parent.id,
+                  buildPath: project.buildPath,
+                });
+              } else {
+                // Parent was staged but not emitted yet; now it has a reason to exist!
+                emittedIds.add(parent.id);
+                this.emit('project', { ...parent });
+              }
+            }
+          } else {
+            // This is a potential root
+            const newRoot: Project = { ...project, submoduleBuildPaths: [] };
+            roots.set(newRoot.id, newRoot);
+
+            if (newRoot.buildPath !== null) {
+              emittedIds.add(newRoot.id);
+              this.emit('project', { ...newRoot });
+            }
           }
-        } else {
-          // This project is a root!
-          const mutable: MutableProject = { ...project, submoduleBuildPaths: [] };
-          emittedRoots.push(mutable);
         }
-      }
 
-      // Filter out root projects that have NO buildPath AND NO submodules
-      for (const root of emittedRoots) {
-        if (root.buildPath !== null || root.submoduleBuildPaths.length > 0) {
-          this.emit('project', { ...root } as Project);
-        }
+        // Give the UI a chance to render before the next batch
+        await new Promise((resolve) => setImmediate(resolve));
       }
     } catch (error) {
       this.emit(

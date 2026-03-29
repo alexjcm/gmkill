@@ -1,4 +1,4 @@
-export type BuildType = 'maven' | 'gradle';
+export type BuildType = 'gradle' | 'maven';
 
 /**
  * Strategy configuration for detecting and handling a build system.

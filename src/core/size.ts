@@ -80,5 +80,5 @@ export async function calculateSize(dirPath: string): Promise<number | null> {
 }
 
 function isSystemError(err: unknown): err is NodeJS.ErrnoException & { code: string } {
-  return err instanceof Error && 'code' in err && typeof (err as any).code === 'string';
+  return err instanceof Error && 'code' in err && typeof (err as { code: unknown }).code === 'string';
 }
