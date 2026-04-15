@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { normalizePath, toBuildPath } from './paths.js';
-import { SUPPORTED_BUILD_SYSTEMS } from './constants.js';
+import { SUPPORTED_BUILD_SYSTEMS, NODE_TARGETS } from './constants.js';
 import type { BuildType, Project } from './types.js';
 
 /**
@@ -25,41 +25,49 @@ async function isJVMBuildFolder(dir: string, type: BuildType): Promise<boolean> 
 /**
  * Attempts to classify and validate a directory as a JVM project.
  */
-export async function detectProject(dir: string): Promise<Project | null> {
-  let buildType: BuildType | null = null;
+export async function detectProject(dir: string): Promise<Project[]> {
+  const detected: Project[] = [];
 
   for (const system of SUPPORTED_BUILD_SYSTEMS) {
     const indicators = [system.primaryIndicator, ...(system.alternativeIndicators ?? [])];
     try {
       await Promise.any(indicators.map((ind) => fs.access(path.join(dir, ind))));
-      buildType = system.type;
-      break;
+      const buildPaths: string[] = [];
+
+      if (system.type === 'node') {
+        const checks = NODE_TARGETS.map(async (target) => {
+          const targetPath = path.join(dir, target);
+          try {
+            await fs.access(targetPath);
+            buildPaths.push(normalizePath(targetPath));
+          } catch {
+            // target directory does not exist
+          }
+        });
+        await Promise.all(checks);
+      } else {
+        const expectedBuildPath = toBuildPath(dir, system.type);
+        try {
+          await fs.access(expectedBuildPath);
+          if (await isJVMBuildFolder(expectedBuildPath, system.type)) {
+            buildPaths.push(expectedBuildPath);
+          }
+        } catch {
+          // JVM build folder does not exist
+        }
+      }
+
+      detected.push({
+        id: `${normalizePath(dir)}::${system.type}`,
+        rootPath: normalizePath(dir),
+        buildPaths,
+        buildType: system.type,
+        size: null,
+      });
     } catch {
       // None of this system's indicators exist — try next
     }
   }
 
-  if (buildType === null) return null;
-
-  // Validate build folder existence AND standard contents (safety first!)
-  const expectedBuildPath = toBuildPath(dir, buildType);
-  let buildPath: string | null = null;
-
-  try {
-    await fs.access(expectedBuildPath);
-    if (await isJVMBuildFolder(expectedBuildPath, buildType)) {
-      buildPath = expectedBuildPath;
-    }
-  } catch {
-    // build folder does not exist — buildPath stays null
-  }
-
-  return {
-    id: normalizePath(dir),
-    rootPath: normalizePath(dir),
-    buildPath,
-    buildType,
-    submoduleBuildPaths: [],
-    size: null,
-  };
+  return detected;
 }

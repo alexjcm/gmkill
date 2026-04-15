@@ -19,17 +19,27 @@ export const ProjectItem: React.FC<ProjectItemProps> = ({
   isFocused,
   maxPathWidth,
 }) => {
-  const isMaven = project.buildType === 'maven';
-  const typeLabel = isMaven ? 'M' : 'G';
-  const typeColor = isMaven ? 'cyan' : 'green';
+  let typeLabel = 'U';
+  let typeColor = 'white';
+  
+  if (project.buildType === 'maven') {
+    typeLabel = 'M'; typeColor = 'cyan';
+  } else if (project.buildType === 'gradle') {
+    typeLabel = 'G'; typeColor = 'green';
+  } else if (project.buildType === 'node') {
+    typeLabel = 'N'; typeColor = 'yellow';
+  }
 
-  const rowColor = isSelected ? 'green' : (isFocused ? 'white' : undefined);
-  const moduleCount = project.submoduleBuildPaths.length + (project.buildPath ? 1 : 0);
+  const bgColor = isFocused ? '#2A2A2A' : undefined;
+  const moduleCount = project.buildPaths.length;
 
   return (
-    <Box>
+    <Box backgroundColor={bgColor}>
       <Box width={COL_CHECK} flexShrink={0}>
-        <Text color={isSelected ? 'green' : (isFocused ? 'white' : undefined)} bold={isSelected || isFocused}>
+        <Text 
+          color={isSelected ? 'green' : (isFocused ? 'white' : undefined)}
+          bold={isSelected || isFocused}
+        >
           {isSelected ? '● ' : (isFocused ? '› ' : '○ ')}
         </Text>
       </Box>
@@ -38,22 +48,28 @@ export const ProjectItem: React.FC<ProjectItemProps> = ({
         <Text
           dimColor={!isFocused && !isSelected}
           underline={isFocused}
-          color={rowColor}
+          color={isFocused ? 'white' : (isSelected ? 'green' : undefined)}
           wrap="truncate-end"
-          bold={isSelected}
+          bold={isFocused}
         >
           {replaceHomeWithTilde(project.rootPath)}
         </Text>
-        <Text color={isSelected ? 'green' : typeColor} dimColor={!isFocused && !isSelected} bold>
-          {`  (${typeLabel})`}
+        <Text 
+          color={isSelected ? 'green' : typeColor} 
+          dimColor={!isFocused && !isSelected} 
+          bold
+        >
+          {`  (${typeLabel})   `}
         </Text>
       </Box>
 
       <Box width={COL_MODULES} flexShrink={0} marginRight={1}>
-        {/* Only show count if it's a multi-module project (Total > 1) */}
         {moduleCount > 1 && (
-          <Text dimColor={!isSelected} color={isSelected ? 'green' : 'cyan'}>
-            {`${moduleCount} mods`}
+          <Text 
+            dimColor={!isSelected && !isFocused} 
+            color={isSelected ? 'green' : 'cyan'}
+          >
+            {project.buildType === 'node' ? `${moduleCount} targets` : `${moduleCount} mods`}
           </Text>
         )}
       </Box>
@@ -65,7 +81,10 @@ export const ProjectItem: React.FC<ProjectItemProps> = ({
             <Text color="yellow">sizing</Text>
           </Box>
         ) : (
-          <Text color={rowColor} dimColor={!isFocused && !isSelected}>
+          <Text 
+            color={isFocused ? 'white' : (isSelected ? 'green' : undefined)}
+            dimColor={!isFocused && !isSelected}
+          >
             {formatBytes(project.size)}
           </Text>
         )}

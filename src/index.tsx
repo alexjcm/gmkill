@@ -27,47 +27,53 @@ function printHelp() {
   console.log(`
   projclean v${v}
 
-  Interactive CLI to detect and clean Maven target/ and Gradle build/ folders.
-  Scans up to 6 levels deep from your home directory to find valid JVM projects.
+  Interactive CLI to detect and clean Node.js, Maven target/ and Gradle build/ folders.
+  Scans up to 8 directory levels deep to find valid projects.
 
   Usage:
-    projclean
+    projclean [path]
+
+  Example:
+    projclean .          # Scan current directory
+    projclean ~/code     # Scan specific folder
 
   Flags:
-    --version     Print version and exit
-    --help        Print this help message and exit
+    --version, -v Print version and exit
+    --help, -h    Print this help message and exit
 
   Shortcuts (when running):
     ↑/k, ↓/j      Navigate project list
-    g / G          Jump to top / bottom
-    SPACE          Select/Deselect project (advances cursor)
-    ENTER          Select/Deselect project (stays on row)
-    a              Select/Deselect all projects
-    D              Initiate deletion of selected projects
-    Q, ESC         Quit the application
+    g / G         Jump to top / bottom
+    SPACE         Select/Deselect project (advances cursor)
+    ENTER         Select/Deselect project (stays on row)
+    a             Select/Deselect all projects
+    D             Initiate deletion of selected projects
+    Q, ESC        Quit the application
   `);
 }
 
 function checkNodeVersion() {
   const v = process.versions.node;
   const major = parseInt(v.split('.')[0] || '0', 10);
-  if (major < 24) {
-    logger.error(`This CLI requires Node.js 24 or higher. You are using v${v}`);
+  if (major < 20) {
+    logger.error(`This CLI requires Node.js 20 or higher. You are using v${v}`);
     process.exit(EXIT_CODES.FATAL_ERROR);
   }
 }
 
 async function main() {
-  let values;
+  let values, positionals;
   try {
     const parsed = util.parseArgs({
       options: {
         version: { type: 'boolean', short: 'v' },
         help: { type: 'boolean', short: 'h' },
       },
+      allowPositionals: true,
       strict: true,
     });
     values = parsed.values;
+    positionals = parsed.positionals;
   } catch (err) {
     logger.error('Invalid argument.', err);
     process.exit(EXIT_CODES.INVALID_ARGUMENT);
@@ -91,7 +97,9 @@ async function main() {
     totalFreedInSession += bytes;
   };
 
-  const { waitUntilExit } = render(React.createElement(App, { onSpaceFreed: handleSpaceFreed }), {
+  const scanRoot = positionals[0];
+
+  const { waitUntilExit } = render(React.createElement(App, { onSpaceFreed: handleSpaceFreed, scanRoot }), {
     exitOnCtrlC: false,
   });
 

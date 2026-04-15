@@ -23,7 +23,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({ selectedSpace, confirmOpen
             <Text color="black" dimColor>Waiting for confirmation…</Text>
           ) : (
             <Text color="black">
-              <Text bold>↑↓/jk</Text> move • <Text bold>g/G</Text> top/bottom •{' '}
+              <Text bold>↑↓</Text> move • <Text bold>g/G</Text> top/bottom •{' '}
               <Text bold>SPACE</Text> select • <Text bold>a</Text> all •{' '}
               <Text bold>D</Text> delete • <Text bold>Q</Text> quit
             </Text>

@@ -1,4 +1,4 @@
-export type BuildType = 'gradle' | 'maven';
+export type BuildType = 'gradle' | 'maven' | 'node';
 
 /**
  * Strategy configuration for detecting and handling a build system.
@@ -21,10 +21,9 @@ export interface Project {
   readonly id: string;
   /** Absolute path to the project root (where pom.xml / build.gradle lives) */
   readonly rootPath: string;
-  /** Absolute path to the build folder (target/ or build/). Null if it's a wrapper project. */
-  readonly buildPath: string | null;
+  /** Absolute paths to all build/target/cache folders to be scrubbed. */
+  readonly buildPaths: string[];
   readonly buildType: BuildType;
-  readonly submoduleBuildPaths: string[];
   /**
    * Size of the build folder in bytes.
    */

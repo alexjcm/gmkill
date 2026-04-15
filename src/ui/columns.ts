@@ -3,8 +3,8 @@
  * and ProjectItem (rows). Centralised here to prevent misalignment.
  */
 export const COL_CHECK = 3;
-export const COL_MODULES = 8;
-export const COL_SIZE = 15;
+export const COL_MODULES = 11;
+export const COL_SIZE = 10;
 export const MIN_PATH_WIDTH = 40;
 
 export function calcPathWidth(terminalColumns: number): number {

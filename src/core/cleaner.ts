@@ -29,10 +29,7 @@ export async function cleanProjects(projects: Project[]): Promise<CleanResult[]>
       if (!project) continue; // TS safety
 
       try {
-        const paths = [...project.submoduleBuildPaths];
-        if (project.buildPath !== null) {
-          paths.push(project.buildPath);
-        }
+        const paths = project.buildPaths;
         await Promise.all(paths.map(p => fs.rm(p, { recursive: true, force: true })));
         
         results.push({

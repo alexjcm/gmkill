@@ -4,7 +4,7 @@ import { Spinner } from '@inkjs/ui';
 import { ProjectItem } from './ProjectItem.js';
 import { formatBytes } from '../utils/format.js';
 import { EXIT_CODES } from '../core/constants.js';
-import { calcPathWidth } from './columns.js';
+import { calcPathWidth, COL_CHECK, COL_MODULES, COL_SIZE } from './columns.js';
 import type { Project, ScanStatus } from '../core/types.js';
 
 interface ProjectListProps {
@@ -97,7 +97,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
       <Box paddingX={1} marginBottom={1}>
         {projects.length === 0 && isScanning ? (
           <Box marginLeft={1}>
-            <Spinner label="Scanning for Gradle/Maven projects..." />
+            <Spinner label="Scanning for Java/Node.js projects..." />
           </Box>
         ) : projects.length === 0 && status === 'done' ? (
           <Box borderStyle="round" borderColor="yellow" padding={1} width="100%">
@@ -129,10 +129,10 @@ export const ProjectList: React.FC<ProjectListProps> = ({
       {projects.length > 0 && (
         <Box paddingX={1} flexDirection="column">
           <Box>
-            <Box width={3} />
+            <Box width={COL_CHECK} />
             <Box width={maxPathWidth} flexGrow={1} marginRight={2}><Text color="gray" bold>PROJECT (TYPE)</Text></Box>
-            <Box width={8} marginRight={1}><Text color="gray" bold>MODULES</Text></Box>
-            <Box width={15} justifyContent="flex-end"><Text color="gray" bold>SIZE</Text></Box>
+            <Box width={COL_MODULES} marginRight={1}><Text color="gray" bold>MODULES</Text></Box>
+            <Box width={COL_SIZE} justifyContent="flex-end"><Text color="gray" bold>SIZE</Text></Box>
           </Box>
           {/* Subtle separator */}
           <Box marginTop={0} marginBottom={0}>

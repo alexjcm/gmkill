@@ -1,7 +1,7 @@
 {
   "name": "projclean",
-  "version": "1.0.0",
-  "description": "Interactive CLI to detect and clean Gradle build/ and Maven target/ folders",
+  "version": "1.1.0",
+  "description": "Interactive CLI to detect and clean garbage build folders across Node.js, Gradle, and Maven projects.",
   "author": "alexjcm",
   "license": "MIT",
   "homepage": "https://github.com/alexjcm/projclean#readme",
@@ -9,8 +9,15 @@
   "bin": {
     "projclean": "dist/index.js"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/alexjcm/projclean.git"
+  },
+  "bugs": {
+    "url": "https://github.com/alexjcm/projclean/issues"
+  },
   "engines": {
-    "node": ">=24.0.0"
+    "node": ">=20.0.0"
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org"
@@ -24,7 +31,7 @@
   "dependencies": {
     "@inkjs/ui": "2.0.0",
     "fast-glob": "3.3.3",
-    "ink": "6.8.0",
+    "ink": "~6.8.0",
     "react": "19.2.4"
   },
   "devDependencies": {
@@ -43,13 +50,18 @@
   "keywords": [
     "cli",
     "tui",
-    "jvm",
     "java",
     "maven",
     "gradle",
+    "node",
+    "nodejs",
+    "javascript",
+    "typescript",
     "build",
     "clean",
-    "disk-space"
+    "disk-cleaner",
+    "reclaim-space",
+    "developer-tools"
   ],
   "packageManager": "npm@11.4.2+sha512.f90c1ec8b207b625d6edb6693aef23dacb39c38e4217fe8c46a973f119cab392ac0de23fe3f07e583188dae9fd9108b3845ad6f525b598742bd060ebad60bff3"
 }

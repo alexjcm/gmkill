@@ -21,8 +21,12 @@ export interface ScannerEvents {
  * Scans the user's home directory for JVM projects with existing build folders.
  */
 export class Scanner extends EventEmitter {
+  constructor(private readonly scanRoot?: string) {
+    super();
+  }
+
   async scan(): Promise<void> {
-    const root = resolveScanRoot();
+    const root = resolveScanRoot(this.scanRoot);
 
     const ignore = [...IGNORED_DIRS].map((d) => `**/${d}/**`);
 
@@ -53,47 +57,45 @@ export class Scanner extends EventEmitter {
       const BATCH_SIZE = 10;
       for (let i = 0; i < candidateDirs.length; i += BATCH_SIZE) {
         const batch = candidateDirs.slice(i, i + BATCH_SIZE);
-        const results = await Promise.all(batch.map((dir) => detectProject(dir)));
+        const resultsArray = await Promise.all(batch.map((dir) => detectProject(dir)));
+        const results = resultsArray.flat();
 
         for (const project of results) {
-          if (!project) continue;
-
-          // Find the nearest registered ancestor — O(depth) path-segment walk
+          // Find the nearest registered ancestor
           // instead of O(n_roots) linear scan across all known roots.
           const parent = (() => {
             const segments = project.rootPath.split('/');
             for (let i = segments.length - 1; i > 0; i--) {
               const candidate = segments.slice(0, i).join('/');
-              const root = roots.get(candidate);
+              const compositeCandidateId = `${candidate}::${project.buildType}`;
+              const root = roots.get(compositeCandidateId);
               if (root !== undefined) return root;
             }
             return undefined;
           })();
 
           if (parent !== undefined) {
-            if (project.buildPath !== null) {
-              // Deduplicate build paths within a project
-              if (!parent.submoduleBuildPaths.includes(project.buildPath)) {
-                parent.submoduleBuildPaths.push(project.buildPath);
+            for (const bp of project.buildPaths) {
+              if (!parent.buildPaths.includes(bp)) {
+                parent.buildPaths.push(bp);
+                if (emittedIds.has(parent.id)) {
+                  this.emit('submodule', {
+                    parentId: parent.id,
+                    buildPath: bp,
+                  });
+                }
               }
-              
-              if (emittedIds.has(parent.id)) {
-                this.emit('submodule', {
-                  parentId: parent.id,
-                  buildPath: project.buildPath,
-                });
-              } else {
-                // Parent was staged but not emitted yet; now it has a reason to exist!
-                emittedIds.add(parent.id);
-                this.emit('project', { ...parent, submoduleBuildPaths: [...parent.submoduleBuildPaths] });
-              }
+            }
+            if (!emittedIds.has(parent.id) && parent.buildPaths.length > 0) {
+              emittedIds.add(parent.id);
+              this.emit('project', { ...parent, buildPaths: [...parent.buildPaths] });
             }
           } else {
             // This is a potential root
-            const newRoot: Project = { ...project, submoduleBuildPaths: [] };
+            const newRoot: Project = { ...project, buildPaths: [...project.buildPaths] };
             roots.set(newRoot.id, newRoot);
 
-            if (newRoot.buildPath !== null) {
+            if (newRoot.buildPaths.length > 0) {
               emittedIds.add(newRoot.id);
               this.emit('project', { ...newRoot });
             }

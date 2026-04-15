@@ -13,11 +13,12 @@ import type { Project, ScanStatus, CleanResult } from '../core/types.js';
 
 interface AppProps {
   onSpaceFreed: (bytes: number) => void;
+  scanRoot?: string;
 }
 
 type ExtendedCleanResult = CleanResult & { uniqueKey: string };
 
-export const App: React.FC<AppProps> = ({ onSpaceFreed }) => {
+export const App: React.FC<AppProps> = ({ onSpaceFreed, scanRoot }) => {
   const { exit } = useApp();
   const [projects, setProjects] = useState<Project[]>([]);
   const [scanStatus, setScanStatus] = useState<ScanStatus>('scanning');
@@ -28,7 +29,7 @@ export const App: React.FC<AppProps> = ({ onSpaceFreed }) => {
   const [isCleaning, setIsCleaning] = useState(false);
 
   useEffect(() => {
-    const scanner = new Scanner();
+    const scanner = new Scanner(scanRoot);
 
     scanner.on('project', (project: Project) => {
       setProjects((prev) => {
@@ -37,9 +38,9 @@ export const App: React.FC<AppProps> = ({ onSpaceFreed }) => {
         return [...prev, project];
       });
 
-      // Calculate size for the project's own build folder
-      if (project.buildPath !== null) {
-        calculateSize(project.buildPath)
+      // Calculate size for all directories
+      for (const buildPath of project.buildPaths) {
+        calculateSize(buildPath)
           .then((size) => {
             setProjects((prev) =>
               prev.map((p) =>
@@ -48,26 +49,7 @@ export const App: React.FC<AppProps> = ({ onSpaceFreed }) => {
             );
           })
           .catch((err) => {
-            const msg = `Failed to size root for ${project.rootPath}`;
-            import('./logger.js').then(({ logger }) => logger.error(msg, err));
-            setProjects((prev) =>
-              prev.map((p) => (p.id === project.id ? { ...p, size: p.size ?? 0 } : p)),
-            );
-          });
-      }
-
-      // ALSO calculate size for any submodules already present
-      for (const subPath of project.submoduleBuildPaths) {
-        calculateSize(subPath)
-          .then((size) => {
-            setProjects((prev) =>
-              prev.map((p) =>
-                p.id === project.id ? { ...p, size: (p.size ?? 0) + (size ?? 0) } : p,
-              ),
-            );
-          })
-          .catch((err) => {
-            const msg = `Failed to size initial submodule ${subPath} of ${project.id}`;
+            const msg = `Failed to size build path ${buildPath} for ${project.rootPath}`;
             import('./logger.js').then(({ logger }) => logger.error(msg, err));
             setProjects((prev) =>
               prev.map((p) => (p.id === project.id ? { ...p, size: p.size ?? 0 } : p)),
@@ -80,7 +62,7 @@ export const App: React.FC<AppProps> = ({ onSpaceFreed }) => {
       setProjects((prev) =>
         prev.map((p) =>
           p.id === parentId
-            ? { ...p, submoduleBuildPaths: [...p.submoduleBuildPaths, buildPath] }
+            ? { ...p, buildPaths: [...p.buildPaths, buildPath] }
             : p,
         ),
       );
@@ -209,15 +191,15 @@ export const App: React.FC<AppProps> = ({ onSpaceFreed }) => {
             return (
               <Box key={result.uniqueKey}>
                 <Box width={3}><Text color="red">✖</Text></Box>
-                <Box><Text color="red" wrap="truncate-end">{result.project.buildPath ?? result.project.rootPath}: {result.error.message}</Text></Box>
+                <Box><Text color="red" wrap="truncate-end">{result.project.rootPath}: {result.error.message}</Text></Box>
               </Box>
             );
           }
           return (
-            <Box key={result.uniqueKey}>
+              <Box key={result.uniqueKey}>
               <Box width={3}><Text color="green">✔</Text></Box>
               <Box width={15}><Text dimColor>{formatBytes(result.freed ?? 0)}</Text></Box>
-              <Box><Text wrap="truncate-end">{result.project.buildPath ?? result.project.rootPath}</Text></Box>
+              <Box><Text wrap="truncate-end">{result.project.rootPath}</Text></Box>
             </Box>
           );
         }}

@@ -4,10 +4,13 @@ import { SUPPORTED_BUILD_SYSTEMS } from './constants.js';
 import type { BuildType } from './types.js';
 
 /**
- * Returns the user's home directory as the root for scanning,
- * with separators normalized to forward slashes.
+ * Returns the directory for scanning, defaulting to user's home directory.
+ * Normalizes separators to forward slashes.
  */
-export function resolveScanRoot(): string {
+export function resolveScanRoot(customPath?: string): string {
+  if (customPath) {
+    return normalizePath(path.resolve(customPath));
+  }
   return normalizePath(os.homedir());
 }
 
