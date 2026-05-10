@@ -6,17 +6,6 @@ import { detectProject } from './detector.js';
 import { SCAN_DEPTH, IGNORED_DIRS, SUPPORTED_BUILD_SYSTEMS } from './constants.js';
 import type { Project } from './types.js';
 
-export interface ScannerEvents {
-  /** Fired for each root-level project found. */
-  project: [project: Project];
-  /** Fired when a submodule is found for an already emitted root project. */
-  submodule: [data: { parentId: string; buildPath: string }];
-  /** Fired once when the scan is completely finished. */
-  done: [];
-  /** Fired if an unexpected error occurs during the scan. */
-  error: [error: Error];
-}
-
 /**
  * Scans the user's home directory for JVM projects with existing build folders.
  */
@@ -28,7 +17,10 @@ export class Scanner extends EventEmitter {
   async scan(): Promise<void> {
     const root = resolveScanRoot(this.scanRoot);
 
-    const ignore = [...IGNORED_DIRS].map((d) => `**/${d}/**`);
+    // Scope ignored directories to descendants of the scan root so an explicit
+    // root like `/private/tmp/my-projects` doesn't get excluded just because one
+    // of its ancestor path segments matches an ignored system directory name.
+    const ignore = [...IGNORED_DIRS].map((d) => `${root}/**/${d}/**`);
 
     const patterns = SUPPORTED_BUILD_SYSTEMS.flatMap((sys) => {
       const indicators = [sys.primaryIndicator, ...(sys.alternativeIndicators ?? [])];

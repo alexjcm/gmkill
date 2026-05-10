@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Box, Text, useInput, useApp, useStdout } from 'ink';
-import { Spinner } from '@inkjs/ui';
+import { Box, Text, useInput, useApp, useWindowSize } from 'ink';
+import Spinner from 'ink-spinner';
 import { ProjectItem } from './ProjectItem.js';
 import { formatBytes } from '../utils/format.js';
 import { EXIT_CODES } from '../core/constants.js';
 import { calcPathWidth, COL_CHECK, COL_MODULES, COL_SIZE } from './columns.js';
+import { palette } from './palette.js';
 import type { Project, ScanStatus } from '../core/types.js';
 
 interface ProjectListProps {
@@ -16,6 +17,7 @@ interface ProjectListProps {
   onDeleteRequested: () => void;
   isActive: boolean;
   totalLiberable: number;
+  isCompact?: boolean;
 }
 
 export const ProjectList: React.FC<ProjectListProps> = ({
@@ -27,11 +29,12 @@ export const ProjectList: React.FC<ProjectListProps> = ({
   onDeleteRequested,
   isActive,
   totalLiberable,
+  isCompact = false,
 }) => {
   const { exit } = useApp();
-  const { stdout } = useStdout();
-  const rows = stdout?.rows ?? 24;
-  const columns = stdout?.columns ?? 80;
+  const windowSize = useWindowSize();
+  const rows = windowSize.rows || 24;
+  const columns = windowSize.columns || 80;
   const [cursor, setCursor] = useState(0);
 
   // Compute once here and pass down — avoids N useStdout listeners in ProjectItem rows.
@@ -90,35 +93,44 @@ export const ProjectList: React.FC<ProjectListProps> = ({
   const isScanning = status === 'scanning';
   // Only show total once at least one size has been resolved
   const showTotal = totalLiberable > 0;
+  const listMinHeight = projects.length === 0
+    ? undefined
+    : Math.min(visibleCount, Math.max(visibleProjects.length, 3));
 
   return (
-    <Box flexDirection="column" marginTop={1}>
+    <Box flexDirection="column" marginTop={isCompact ? 0 : 1}>
       {/* 1. Summary Header & Total */}
-      <Box paddingX={1} marginBottom={1}>
+      <Box paddingX={1} marginBottom={isCompact ? 0 : 1}>
         {projects.length === 0 && isScanning ? (
-          <Box marginLeft={1}>
-            <Spinner label="Scanning for Java/Node.js projects..." />
+            <Box marginLeft={1}>
+              <Box flexDirection="row" gap={1}>
+              <Text color={palette.info}><Spinner /></Text>
+              <Text>Scanning for Java/Node.js projects...</Text>
+            </Box>
           </Box>
         ) : projects.length === 0 && status === 'done' ? (
-          <Box borderStyle="round" borderColor="yellow" padding={1} width="100%">
-            <Text color="yellow">No cleanable JVM projects found in home directory.</Text>
+          <Box borderStyle="round" borderColor={palette.warning} padding={1} width="100%">
+            <Text color={palette.warning}>No cleanable Node.js, Gradle, or Maven projects found.</Text>
           </Box>
         ) : (
           <Box flexDirection="row" justifyContent="space-between" flexGrow={1}>
             <Box>
-              <Text bold>
+              <Text>
                 Found {projects.length} {projects.length === 1 ? 'project' : 'projects'}
               </Text>
               {isScanning && (
                 <Box marginLeft={2}>
-                  <Spinner label="Scanning..." />
+                  <Box flexDirection="row" gap={1}>
+                    <Text color={palette.info}><Spinner /></Text>
+                    <Text>Scanning...</Text>
+                  </Box>
                 </Box>
               )}
             </Box>
             {showTotal && (
               <Box>
-                <Text dimColor>Total Liberable: </Text>
-                <Text color="cyan" bold>{formatBytes(totalLiberable)}</Text>
+                <Text>Total Liberable: </Text>
+                <Text color={palette.info}>{formatBytes(totalLiberable)}</Text>
               </Box>
             )}
           </Box>
@@ -127,22 +139,29 @@ export const ProjectList: React.FC<ProjectListProps> = ({
 
       {/* 2. Column Headers */}
       {projects.length > 0 && (
-        <Box paddingX={1} flexDirection="column">
-          <Box>
+        <Box paddingX={1} flexDirection="column" aria-hidden>
+          <Box aria-hidden>
             <Box width={COL_CHECK} />
-            <Box width={maxPathWidth} flexGrow={1} marginRight={2}><Text color="gray" bold>PROJECT (TYPE)</Text></Box>
-            <Box width={COL_MODULES} marginRight={1}><Text color="gray" bold>MODULES</Text></Box>
-            <Box width={COL_SIZE} justifyContent="flex-end"><Text color="gray" bold>SIZE</Text></Box>
+            <Box width={maxPathWidth} flexGrow={1} marginRight={2}><Text bold>PROJECT (TYPE)</Text></Box>
+            <Box width={COL_MODULES} marginRight={1}><Text bold>MODULES</Text></Box>
+            <Box width={COL_SIZE} justifyContent="flex-end"><Text bold>SIZE</Text></Box>
           </Box>
           {/* Subtle separator */}
           <Box marginTop={0} marginBottom={0}>
-            <Text dimColor>{"─".repeat(Math.min(columns - 2, 100))}</Text>
+            <Text color="gray">{"─".repeat(Math.min(columns - 2, 100))}</Text>
           </Box>
         </Box>
       )}
 
       {/* 3. Project List */}
-      <Box flexDirection="column" paddingX={1} minHeight={visibleCount}>
+      <Box
+        flexDirection="column"
+        paddingX={1}
+        minHeight={listMinHeight}
+        aria-role="listbox"
+        aria-state={{ multiselectable: true, busy: isScanning }}
+        aria-label={`Cleanable projects. ${projects.length} ${projects.length === 1 ? 'project' : 'projects'} found.`}
+      >
         {visibleProjects.map((project, i) => {
           const globalIndex = startIndex + i;
           return (

@@ -2,8 +2,6 @@ import fs from 'node:fs';
 
 export const logger = {
   info: (msg: string) => console.log(`  ${msg}`),
-  success: (msg: string) => console.log(`✔ ${msg}`),
-  warn: (msg: string) => console.warn(`⚠ ${msg}`),
   error: (msg: string, err?: unknown) => {
     if (process.env['NODE_ENV'] === 'development') {
       const logMsg = `[${new Date().toISOString()}] ✖ ${msg}${err instanceof Error ? `: ${err.message}` : ''}\n`;

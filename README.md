@@ -1,7 +1,7 @@
 # projclean
 
 ![NPM Version](https://img.shields.io/npm/v/projclean?style=for-the-badge&logo=npm)
-![Node.js](https://img.shields.io/badge/Node.js-%3E%3D24-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)
+![Node.js](https://img.shields.io/badge/Node.js-%3E%3D22-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)
 
 ![Gradle](https://img.shields.io/badge/Gradle-02303A?style=for-the-badge&logo=gradle&logoColor=white)
@@ -19,15 +19,19 @@ Interactive TUI to reclaim disk space by finding and cleaning deep compile cache
 
 ## Requirements
 
-- Node.js >= 20
+- Node.js >= 22
 
-```bash
-npx projclean
-```
-
-### Installation
+## Installation
 ```bash
 npm install -g projclean
+```
+
+## Quick Start
+
+```bash
+projclean
+projclean .
+projclean ~/code
 ```
 
 ## Key Bindings
@@ -54,7 +58,6 @@ npm run dev
 
 ```bash
 npm run build
-
 npm link
 projclean
 ```

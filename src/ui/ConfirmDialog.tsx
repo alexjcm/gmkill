@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Text, useInput } from 'ink';
 import { formatBytes } from '../utils/format.js';
+import { palette } from './palette.js';
 
 interface ConfirmDialogProps {
   isOpen: boolean;
@@ -35,21 +36,29 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   }
 
   return (
-    <Box marginTop={1} paddingX={1} paddingY={0} borderStyle="round" borderColor="yellow" flexDirection="column">
+    <Box
+      marginTop={1}
+      paddingX={1}
+      paddingY={0}
+      borderStyle="round"
+      borderColor={palette.warning}
+      flexDirection="column"
+      aria-label={`Confirm deletion of ${selectedCount} ${selectedCount === 1 ? 'project' : 'projects'} totaling ${formatBytes(totalSpace)}. Press Y or Enter to confirm. Press N, Q, or Escape to cancel.`}
+    >
       <Box gap={1}>
-        <Text color="yellow">⚠</Text>
+        <Text color={palette.warning} aria-hidden>⚠</Text>
         <Text>
           Delete build folders of{' '}
-          <Text bold color="white">{selectedCount}</Text>
+          <Text bold color={palette.warning}>{selectedCount}</Text>
           {selectedCount === 1 ? ' project' : ' projects'}?{' '}
-          <Text dimColor>({formatBytes(totalSpace)})</Text>
+          <Text color={palette.warning}>({formatBytes(totalSpace)})</Text>
         </Text>
       </Box>
-      <Box marginLeft={2}>
-        <Text bold color="green">Y/Enter</Text>
-        <Text dimColor> to confirm  </Text>
-        <Text bold color="red">N/Esc</Text>
-        <Text dimColor> to cancel</Text>
+      <Box marginLeft={2} aria-hidden>
+        <Text bold color={palette.success}>Y/Enter</Text>
+        <Text> to confirm  </Text>
+        <Text bold color={palette.danger}>N/Esc</Text>
+        <Text> to cancel</Text>
       </Box>
     </Box>
   );

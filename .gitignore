@@ -31,4 +31,6 @@ Thumbs.db
 *.sln
 *.sw?
 
+*.tgz
+
 TODO.md

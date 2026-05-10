@@ -22,35 +22,3 @@ export function formatBytes(bytes: number): string {
   }
   return `${bytes} B`;
 }
-
-/**
- * Truncates a path string to fit within `maxWidth` characters,
- * always preserving the final path segment (the project folder name).
- */
-export function truncatePath(p: string, maxWidth: number): string {
-  // Normalize separators for display
-  const normalized = p.replaceAll('\\', '/');
-
-  if (normalized.length <= maxWidth) {
-    return normalized;
-  }
-
-  const segments = normalized.split('/');
-  const last = segments[segments.length - 1] ?? '';
-  const prefix = '~/…/';
-  const available = maxWidth - prefix.length - last.length;
-
-  if (available <= 0) {
-    return last;
-  }
-
-  const middle: string[] = [];
-  for (let i = segments.length - 2; i >= 0; i--) {
-    const segment = segments[i] ?? '';
-    const candidate = [segment, ...middle].join('/');
-    if (candidate.length > available) break;
-    middle.unshift(segment);
-  }
-
-  return `${prefix}${middle.length > 0 ? middle.join('/') + '/' : ''}${last}`;
-}

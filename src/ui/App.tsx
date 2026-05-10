@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Box, Static, Text, useApp, useInput } from 'ink';
-import { Spinner } from '@inkjs/ui';
+import Spinner from 'ink-spinner';
 import { Scanner } from '../core/scanner.js';
 import { calculateSize } from '../core/size.js';
 import { cleanProjects } from '../core/cleaner.js';
@@ -9,6 +9,7 @@ import { ProjectList } from './ProjectList.js';
 import { StatusBar } from './StatusBar.js';
 import { ConfirmDialog } from './ConfirmDialog.js';
 import { formatBytes } from '../utils/format.js';
+import { palette } from './palette.js';
 import type { Project, ScanStatus, CleanResult } from '../core/types.js';
 
 interface AppProps {
@@ -17,6 +18,19 @@ interface AppProps {
 }
 
 type ExtendedCleanResult = CleanResult & { uniqueKey: string };
+type CleanSummaryEntry = {
+  uniqueKey: string;
+  kind: 'summary';
+  attemptedCount: number;
+  cleanedCount: number;
+  failedCount: number;
+  released: number;
+};
+type CleanLogEntry = ExtendedCleanResult | CleanSummaryEntry;
+
+function isCleanSummaryEntry(entry: CleanLogEntry): entry is CleanSummaryEntry {
+  return 'kind' in entry && entry.kind === 'summary';
+}
 
 export const App: React.FC<AppProps> = ({ onSpaceFreed, scanRoot }) => {
   const { exit } = useApp();
@@ -25,7 +39,7 @@ export const App: React.FC<AppProps> = ({ onSpaceFreed, scanRoot }) => {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [confirmOpen, setConfirmOpen] = useState(false);
   
-  const [cleanResults, setCleanResults] = useState<ExtendedCleanResult[]>([]);
+  const [cleanResults, setCleanResults] = useState<CleanLogEntry[]>([]);
   const [isCleaning, setIsCleaning] = useState(false);
 
   useEffect(() => {
@@ -147,10 +161,24 @@ export const App: React.FC<AppProps> = ({ onSpaceFreed, scanRoot }) => {
     // Calculate total freed in this batch and report it to the caller
     const freedInBatch = results.reduce((acc, r) => acc + (r.freed ?? 0), 0);
     onSpaceFreed(freedInBatch);
+    const cleanedCount = results.filter((r) => r.error === undefined).length;
+    const failedCount = results.length - cleanedCount;
     
     // Append to static logs with a unique key to prevent Ink duplicate key warnings
-    const resultsWithKeys = results.map(r => ({ ...r, uniqueKey: r.project.id + '-' + Math.random().toString(36).substring(2) }));
-    setCleanResults(prev => [...prev, ...resultsWithKeys]);
+    const batchKey = Math.random().toString(36).substring(2);
+    const resultsWithKeys = results.map((r) => ({
+      ...r,
+      uniqueKey: `${r.project.id}-${batchKey}-${Math.random().toString(36).substring(2)}`,
+    }));
+    const summaryEntry: CleanSummaryEntry = {
+      uniqueKey: `summary-${batchKey}`,
+      kind: 'summary',
+      attemptedCount: results.length,
+      cleanedCount,
+      failedCount,
+      released: freedInBatch,
+    };
+    setCleanResults((prev) => [...prev, ...resultsWithKeys, summaryEntry]);
     
     // Remove successful ones from the list
     const successIds = new Set(results.filter(r => r.freed !== null).map(r => r.project.id));
@@ -186,29 +214,55 @@ export const App: React.FC<AppProps> = ({ onSpaceFreed, scanRoot }) => {
   return (
     <>
       <Static items={cleanResults}>
-        {(result: ExtendedCleanResult) => {
+        {(result: CleanLogEntry) => {
+          if (isCleanSummaryEntry(result)) {
+            return (
+              <Box key={result.uniqueKey}>
+                <Box width={3}><Text color={palette.info}>ℹ</Text></Box>
+                <Box>
+                  <Text color={palette.info} bold>
+                    Cleaned {result.cleanedCount}/{result.attemptedCount} {result.attemptedCount === 1 ? 'project' : 'projects'}
+                  </Text>
+                  <Text>{`  •  Released ${formatBytes(result.released)}`}</Text>
+                  {result.failedCount > 0 && (
+                    <Text color={palette.warning}>{`  •  ${result.failedCount} failed`}</Text>
+                  )}
+                </Box>
+              </Box>
+            );
+          }
+
           if (result.error) {
             return (
               <Box key={result.uniqueKey}>
-                <Box width={3}><Text color="red">✖</Text></Box>
-                <Box><Text color="red" wrap="truncate-end">{result.project.rootPath}: {result.error.message}</Text></Box>
+                <Box width={3}><Text color={palette.danger}>✖</Text></Box>
+                <Box><Text color={palette.danger} wrap="truncate-end">{result.project.rootPath}: {result.error.message}</Text></Box>
               </Box>
             );
           }
           return (
               <Box key={result.uniqueKey}>
-              <Box width={3}><Text color="green">✔</Text></Box>
-              <Box width={15}><Text dimColor>{formatBytes(result.freed ?? 0)}</Text></Box>
+              <Box width={3}><Text color={palette.success}>✔</Text></Box>
+              <Box width={15}><Text>{formatBytes(result.freed ?? 0)}</Text></Box>
               <Box><Text wrap="truncate-end">{result.project.rootPath}</Text></Box>
             </Box>
           );
         }}
       </Static>
 
+      {cleanResults.length > 0 && !isCleaning && (
+        <Box paddingX={1}>
+          <Text color="gray">{"─".repeat(100)}</Text>
+        </Box>
+      )}
+
       {/* Show spinner while cleaning to prevent blank screen and accidental keystrokes */}
       {isCleaning ? (
         <Box marginTop={1} paddingX={2}>
-          <Spinner label="Cleaning selected projects…" />
+          <Box flexDirection="row" gap={1}>
+            <Text color={palette.selection}><Spinner /></Text>
+            <Text>Cleaning selected projects…</Text>
+          </Box>
         </Box>
       ) : (
         <Box flexDirection="column" paddingX={1}>
@@ -221,6 +275,7 @@ export const App: React.FC<AppProps> = ({ onSpaceFreed, scanRoot }) => {
             onDeleteRequested={handleDeleteRequested}
             isActive={!confirmOpen}
             totalLiberable={totalLiberableSpace}
+            isCompact={cleanResults.length > 0}
           />
 
           <ConfirmDialog

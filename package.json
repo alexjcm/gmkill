@@ -1,6 +1,6 @@
 {
   "name": "projclean",
-  "version": "1.1.0",
+  "version": "1.2.1",
   "description": "Interactive CLI to detect and clean garbage build folders across Node.js, Gradle, and Maven projects.",
   "author": "alexjcm",
   "license": "MIT",
@@ -17,7 +17,7 @@
     "url": "https://github.com/alexjcm/projclean/issues"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.0.0"
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org"
@@ -26,41 +26,37 @@
     "dev": "tsx src/index.tsx",
     "lint": "eslint .",
     "prebuild": "rm -rf dist",
-    "build": "tsc -p tsconfig.build.json && chmod +x dist/index.js"
+    "build": "tsc -p tsconfig.build.json && chmod +x dist/index.js",
+    "prepack": "npm run build"
   },
   "dependencies": {
-    "@inkjs/ui": "2.0.0",
     "fast-glob": "3.3.3",
-    "ink": "~6.8.0",
-    "react": "19.2.4"
+    "ink": "^7.0.2",
+    "ink-spinner": "^5.0.0",
+    "react": "19.2.6"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/node": "^24.0.0",
     "@types/react": "19.2.14",
-    "eslint": "^10.1.0",
+    "eslint": "^10.3.0",
     "globals": "^17.4.0",
     "tsx": "^4.21.0",
     "typescript": "5.9.3",
     "typescript-eslint": "^8.57.2"
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md",
+    "LICENSE"
   ],
   "keywords": [
     "cli",
     "tui",
-    "java",
     "maven",
     "gradle",
-    "node",
     "nodejs",
-    "javascript",
-    "typescript",
-    "build",
-    "clean",
     "disk-cleaner",
-    "reclaim-space",
     "developer-tools"
   ],
   "packageManager": "npm@11.4.2+sha512.f90c1ec8b207b625d6edb6693aef23dacb39c38e4217fe8c46a973f119cab392ac0de23fe3f07e583188dae9fd9108b3845ad6f525b598742bd060ebad60bff3"

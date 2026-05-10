@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import { CONCURRENCY } from './constants.js';
+import { calculateSize } from './size.js';
 import type { Project, CleanResult, CleanErrorCode } from './types.js';
 
 function getActionableMessage(code: string): string {
@@ -30,11 +31,23 @@ export async function cleanProjects(projects: Project[]): Promise<CleanResult[]>
 
       try {
         const paths = project.buildPaths;
+        let freed = project.size;
+
+        // Preserve fast-path performance by trusting already computed sizes.
+        // Only measure at delete-time for projects that were still "sizing".
+        if (freed === null) {
+          const measuredPaths = await Promise.all(paths.map((p) => calculateSize(p)));
+          const knownSizes = measuredPaths.filter((size): size is number => size !== null);
+          freed = knownSizes.length === measuredPaths.length
+            ? knownSizes.reduce((total, size) => total + size, 0)
+            : null;
+        }
+
         await Promise.all(paths.map(p => fs.rm(p, { recursive: true, force: true })));
         
         results.push({
           project,
-          freed: project.size, // Assuming we trust the snapshot sized before cleaning
+          freed,
         });
       } catch (err) {
         let code: CleanErrorCode = 'ENOENT'; // fallback

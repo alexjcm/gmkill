@@ -55,8 +55,8 @@ function printHelp() {
 function checkNodeVersion() {
   const v = process.versions.node;
   const major = parseInt(v.split('.')[0] || '0', 10);
-  if (major < 20) {
-    logger.error(`This CLI requires Node.js 20 or higher. You are using v${v}`);
+  if (major < 22) {
+    logger.error(`This CLI requires Node.js 22 or higher. You are using v${v}`);
     process.exit(EXIT_CODES.FATAL_ERROR);
   }
 }
@@ -101,6 +101,9 @@ async function main() {
 
   const { waitUntilExit } = render(React.createElement(App, { onSpaceFreed: handleSpaceFreed, scanRoot }), {
     exitOnCtrlC: false,
+    incrementalRendering: true,
+    maxFps: 20,
+    alternateScreen: true,
   });
 
   await waitUntilExit();
