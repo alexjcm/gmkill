@@ -17,6 +17,7 @@ interface ProjectListProps {
   onDeleteRequested: () => void;
   isActive: boolean;
   totalLiberable: number;
+  isLinkedWorkspace?: boolean;
   isCompact?: boolean;
 }
 
@@ -29,6 +30,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
   onDeleteRequested,
   isActive,
   totalLiberable,
+  isLinkedWorkspace = false,
   isCompact = false,
 }) => {
   const { exit } = useApp();
@@ -117,6 +119,9 @@ export const ProjectList: React.FC<ProjectListProps> = ({
             <Box>
               <Text>
                 Found {projects.length} {projects.length === 1 ? 'project' : 'projects'}
+                {isLinkedWorkspace && (
+                  <Text color="gray">{' (running from linked workspace)'}</Text>
+                )}
               </Text>
               {isScanning && (
                 <Box marginLeft={2}>
@@ -160,7 +165,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
         minHeight={listMinHeight}
         aria-role="listbox"
         aria-state={{ multiselectable: true, busy: isScanning }}
-        aria-label={`Cleanable projects. ${projects.length} ${projects.length === 1 ? 'project' : 'projects'} found.`}
+        aria-label={`Cleanable projects. ${projects.length} ${projects.length === 1 ? 'project' : 'projects'} found.${isLinkedWorkspace ? ' Running from linked workspace.' : ''}`}
       >
         {visibleProjects.map((project, i) => {
           const globalIndex = startIndex + i;

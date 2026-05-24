@@ -61,3 +61,9 @@ npm run build
 npm link
 projclean
 ```
+
+If you used `npm link` and want to test the published npm version afterwards, first run:
+
+```bash
+npm unlink -g projclean
+```

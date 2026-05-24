@@ -15,6 +15,7 @@ import type { Project, ScanStatus, CleanResult } from '../core/types.js';
 interface AppProps {
   onSpaceFreed: (bytes: number) => void;
   scanRoot?: string;
+  isLinkedWorkspace?: boolean;
 }
 
 type ExtendedCleanResult = CleanResult & { uniqueKey: string };
@@ -32,7 +33,7 @@ function isCleanSummaryEntry(entry: CleanLogEntry): entry is CleanSummaryEntry {
   return 'kind' in entry && entry.kind === 'summary';
 }
 
-export const App: React.FC<AppProps> = ({ onSpaceFreed, scanRoot }) => {
+export const App: React.FC<AppProps> = ({ onSpaceFreed, scanRoot, isLinkedWorkspace = false }) => {
   const { exit } = useApp();
   const [projects, setProjects] = useState<Project[]>([]);
   const [scanStatus, setScanStatus] = useState<ScanStatus>('scanning');
@@ -275,6 +276,7 @@ export const App: React.FC<AppProps> = ({ onSpaceFreed, scanRoot }) => {
             onDeleteRequested={handleDeleteRequested}
             isActive={!confirmOpen}
             totalLiberable={totalLiberableSpace}
+            isLinkedWorkspace={isLinkedWorkspace}
             isCompact={cleanResults.length > 0}
           />
 

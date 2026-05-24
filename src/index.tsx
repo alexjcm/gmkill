@@ -22,6 +22,14 @@ function getVersion(): string {
   }
 }
 
+function isRunningFromLinkedWorkspace(): boolean {
+  // Published installs only ship dist/package metadata; npm link points at the full workspace.
+  return [
+    '../src/index.tsx',
+    '../tsconfig.json',
+  ].some((relativePath) => fs.existsSync(new URL(relativePath, import.meta.url)));
+}
+
 function printHelp() {
   const v = getVersion();
   console.log(`
@@ -91,6 +99,10 @@ async function main() {
 
   checkNodeVersion();
 
+  const isLinkedWorkspace = isRunningFromLinkedWorkspace();
+
+  logger.info('projclean');
+
   // Track cumulative space freed across the session
   let totalFreedInSession = 0;
   const handleSpaceFreed = (bytes: number) => {
@@ -99,7 +111,11 @@ async function main() {
 
   const scanRoot = positionals[0];
 
-  const { waitUntilExit } = render(React.createElement(App, { onSpaceFreed: handleSpaceFreed, scanRoot }), {
+  const { waitUntilExit } = render(React.createElement(App, {
+    onSpaceFreed: handleSpaceFreed,
+    scanRoot,
+    isLinkedWorkspace,
+  }), {
     exitOnCtrlC: false,
     incrementalRendering: true,
     maxFps: 20,

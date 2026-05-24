@@ -11,7 +11,7 @@ export const logger = {
         // Fallback or ignore if write fails
       }
     }
-    
+
     console.error(`✖ ${msg}`);
     if (err instanceof Error) console.error(`  ${err.message}`);
   },
