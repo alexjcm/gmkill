@@ -57,7 +57,8 @@ export class Scanner extends EventEmitter {
         if (depth > SCAN_DEPTH) return;
 
         const dirName = path.basename(currentDir);
-        if (IGNORED_DIRS.has(dirName) || dirName.endsWith('.app')) {
+        const isRoot = currentDir === root;
+        if ((!isRoot && dirName.startsWith('.')) || IGNORED_DIRS.has(dirName) || dirName.endsWith('.app')) {
           return;
         }
 

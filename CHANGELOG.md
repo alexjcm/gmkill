@@ -11,6 +11,9 @@ All notable changes to this project will be documented in this file.
 - Parallelized directory size calculations for `fs.stat` queries, resulting in 5x-10x faster sizing of large folders like `node_modules`.
 - Optimized project detection by removing redundant `fs.access` disk queries for build indicators and Node.js target directories.
 
+### Fixed
+- Fixed directory walker to ignore hidden configuration directories (e.g., `.npm`, `.vscode`, `.antigravity`, `.devin`, `.windsurf`) unless explicitly set as the scan root.
+
 ## [1.2.0] - 2026-05-10
 
 ### Changed
