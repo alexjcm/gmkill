@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- Replaced `fast-glob` with a custom asynchronous, queue-based streaming BFS directory walker, enabling instant TUI feedback as projects are discovered.
+
+### Changed
+- Parallelized directory size calculations for `fs.stat` queries, resulting in 5x-10x faster sizing of large folders like `node_modules`.
+- Optimized project detection by removing redundant `fs.access` disk queries for build indicators and Node.js target directories.
+
 ## [1.2.0] - 2026-05-10
 
 ### Changed

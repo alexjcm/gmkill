@@ -50,22 +50,27 @@ export async function calculateSize(dirPath: string): Promise<number | null> {
     const processDirectory = async (dir: string) => {
       try {
         const entries = await fs.readdir(dir, { withFileTypes: true });
+        const filePromises: Promise<void>[] = [];
+
         for (const entry of entries) {
           const entryPath = path.join(dir, entry.name);
           if (entry.isDirectory()) {
             dirQueue.push(entryPath);
           } else {
-            // Using stat for accurate size, or assuming file size is small enough
-            // For extreme speed, we could skip stat for files, or just stat files concurrently too
-            try {
-              const fileStat = await fs.stat(entryPath);
-              totalSize += fileStat.size;
-            } catch (err) {
-              if (isSystemError(err) && ['EACCES', 'EPERM', 'ENOENT'].includes(err.code)) continue;
-              throw err;
-            }
+            filePromises.push(
+              fs.stat(entryPath)
+                .then((fileStat) => {
+                  totalSize += fileStat.size;
+                })
+                .catch((err) => {
+                  if (isSystemError(err) && ['EACCES', 'EPERM', 'ENOENT'].includes(err.code)) return;
+                  throw err;
+                })
+            );
           }
         }
+
+        await Promise.all(filePromises);
       } catch (err) {
         if (isSystemError(err) && ['EACCES', 'EPERM', 'ENOENT'].includes(err.code)) {
           return;

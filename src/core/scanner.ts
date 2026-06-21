@@ -1,13 +1,15 @@
 import EventEmitter from 'node:events';
+import fs from 'node:fs/promises';
+import type { Dirent } from 'node:fs';
 import path from 'node:path';
-import fg from 'fast-glob';
-import { resolveScanRoot, normalizePath } from './paths.js';
-import { detectProject } from './detector.js';
-import { SCAN_DEPTH, IGNORED_DIRS, SUPPORTED_BUILD_SYSTEMS } from './constants.js';
+import { resolveScanRoot, normalizePath, toBuildPath } from './paths.js';
+import { isJVMBuildFolder } from './detector.js';
+import { SCAN_DEPTH, IGNORED_DIRS, SUPPORTED_BUILD_SYSTEMS, NODE_TARGETS } from './constants.js';
 import type { Project } from './types.js';
 
 /**
- * Scans the user's home directory for JVM projects with existing build folders.
+ * Scans the user's scan root directory recursively for supported projects.
+ * Uses an asynchronous queue-based BFS walker to stream projects in real time.
  */
 export class Scanner extends EventEmitter {
   constructor(private readonly scanRoot?: string) {
@@ -17,93 +19,152 @@ export class Scanner extends EventEmitter {
   async scan(): Promise<void> {
     const root = resolveScanRoot(this.scanRoot);
 
-    // Scope ignored directories to descendants of the scan root so an explicit
-    // root like `/private/tmp/my-projects` doesn't get excluded just because one
-    // of its ancestor path segments matches an ignored system directory name.
-    const ignore = [...IGNORED_DIRS].map((d) => `${root}/**/${d}/**`);
+    const roots = new Map<string, Project>();
+    const emittedIds = new Set<string>();
 
-    const patterns = SUPPORTED_BUILD_SYSTEMS.flatMap((sys) => {
-      const indicators = [sys.primaryIndicator, ...(sys.alternativeIndicators ?? [])];
-      return indicators.map((ind) => `${root}/**/${ind}`);
-    });
+    const queue: { dir: string; depth: number }[] = [{ dir: root, depth: 1 }];
+    let activeReads = 0;
+    const CONCURRENCY_LIMIT = 8;
 
-    try {
-      const files = await fg(patterns, {
-        onlyFiles: true,
-        deep: SCAN_DEPTH,
-        ignore,
-        suppressErrors: true,
-      });
+    return new Promise<void>((resolve) => {
+      let isDone = false;
 
-      // Deduplicate directories (a project may have both build.gradle and build.gradle.kts)
-      const candidateDirs = [
-        ...new Set(files.map((f) => normalizePath(path.dirname(f)))),
-      ];
+      const checkAndProcess = () => {
+        if (isDone) return;
+        if (queue.length === 0 && activeReads === 0) {
+          isDone = true;
+          this.emit('done');
+          resolve();
+          return;
+        }
 
-      // Sort by path so that parent directories always come before their children.
-      candidateDirs.sort();
+        while (queue.length > 0 && activeReads < CONCURRENCY_LIMIT) {
+          const item = queue.shift()!;
+          activeReads++;
 
-      const roots = new Map<string, Project>();
-      const emittedIds = new Set<string>();
+          processDirectory(item.dir, item.depth)
+            .catch((err) => {
+              this.emit('error', err);
+            })
+            .finally(() => {
+              activeReads--;
+              checkAndProcess();
+            });
+        }
+      };
 
-      const BATCH_SIZE = 10;
-      for (let i = 0; i < candidateDirs.length; i += BATCH_SIZE) {
-        const batch = candidateDirs.slice(i, i + BATCH_SIZE);
-        const resultsArray = await Promise.all(batch.map((dir) => detectProject(dir)));
-        const results = resultsArray.flat();
+      const processDirectory = async (currentDir: string, depth: number) => {
+        if (depth > SCAN_DEPTH) return;
 
-        for (const project of results) {
-          // Find the nearest registered ancestor
-          // instead of O(n_roots) linear scan across all known roots.
-          const parent = (() => {
-            const segments = project.rootPath.split('/');
-            for (let i = segments.length - 1; i > 0; i--) {
-              const candidate = segments.slice(0, i).join('/');
-              const compositeCandidateId = `${candidate}::${project.buildType}`;
-              const root = roots.get(compositeCandidateId);
-              if (root !== undefined) return root;
-            }
-            return undefined;
-          })();
+        const dirName = path.basename(currentDir);
+        if (IGNORED_DIRS.has(dirName) || dirName.endsWith('.app')) {
+          return;
+        }
 
-          if (parent !== undefined) {
-            for (const bp of project.buildPaths) {
-              if (!parent.buildPaths.includes(bp)) {
-                parent.buildPaths.push(bp);
-                if (emittedIds.has(parent.id)) {
-                  this.emit('submodule', {
-                    parentId: parent.id,
-                    buildPath: bp,
-                  });
+        let entries: Dirent[];
+        try {
+          entries = await fs.readdir(currentDir, { withFileTypes: true });
+        } catch {
+          // Ignore directory read errors (permissions, locked files, etc.)
+          return;
+        }
+
+        const files = new Set<string>();
+        const subdirs = new Set<string>();
+
+        for (const entry of entries) {
+          if (entry.isFile()) {
+            files.add(entry.name);
+          } else if (entry.isDirectory()) {
+            subdirs.add(entry.name);
+          }
+        }
+
+        // Detect projects in this directory
+        for (const system of SUPPORTED_BUILD_SYSTEMS) {
+          const indicators = [system.primaryIndicator, ...(system.alternativeIndicators ?? [])];
+          const hasIndicator = indicators.some((ind) => files.has(ind));
+
+          if (hasIndicator) {
+            const buildPaths: string[] = [];
+
+            if (system.type === 'node') {
+              for (const target of NODE_TARGETS) {
+                if (subdirs.has(target)) {
+                  buildPaths.push(normalizePath(path.join(currentDir, target)));
+                }
+              }
+            } else {
+              const expectedBuildPath = toBuildPath(currentDir, system.type);
+              const expectedBuildFolder = path.basename(expectedBuildPath);
+              if (subdirs.has(expectedBuildFolder)) {
+                if (await isJVMBuildFolder(expectedBuildPath, system.type)) {
+                  buildPaths.push(expectedBuildPath);
                 }
               }
             }
-            if (!emittedIds.has(parent.id) && parent.buildPaths.length > 0) {
-              emittedIds.add(parent.id);
-              this.emit('project', { ...parent, buildPaths: [...parent.buildPaths] });
-            }
-          } else {
-            // This is a potential root
-            const newRoot: Project = { ...project, buildPaths: [...project.buildPaths] };
-            roots.set(newRoot.id, newRoot);
 
-            if (newRoot.buildPaths.length > 0) {
-              emittedIds.add(newRoot.id);
-              this.emit('project', { ...newRoot });
+            const project: Project = {
+              id: `${normalizePath(currentDir)}::${system.type}`,
+              rootPath: normalizePath(currentDir),
+              buildPaths,
+              buildType: system.type,
+              size: null,
+            };
+
+            // Find the nearest registered ancestor
+            const parent = (() => {
+              const segments = project.rootPath.split('/');
+              for (let i = segments.length - 1; i > 0; i--) {
+                const candidate = segments.slice(0, i).join('/');
+                const compositeCandidateId = `${candidate}::${project.buildType}`;
+                const rootProj = roots.get(compositeCandidateId);
+                if (rootProj !== undefined) return rootProj;
+              }
+              return undefined;
+            })();
+
+            if (parent !== undefined) {
+              for (const bp of project.buildPaths) {
+                if (!parent.buildPaths.includes(bp)) {
+                  parent.buildPaths.push(bp);
+                  if (emittedIds.has(parent.id)) {
+                    this.emit('submodule', {
+                      parentId: parent.id,
+                      buildPath: bp,
+                    });
+                  }
+                }
+              }
+              if (!emittedIds.has(parent.id) && parent.buildPaths.length > 0) {
+                emittedIds.add(parent.id);
+                this.emit('project', { ...parent, buildPaths: [...parent.buildPaths] });
+              }
+            } else {
+              // This is a potential root
+              const newRoot: Project = { ...project };
+              roots.set(newRoot.id, newRoot);
+
+              if (newRoot.buildPaths.length > 0) {
+                emittedIds.add(newRoot.id);
+                this.emit('project', { ...newRoot });
+              }
             }
           }
         }
 
-        // Give the UI a chance to render before the next batch
-        await new Promise((resolve) => setImmediate(resolve));
-      }
-    } catch (error) {
-      this.emit(
-        'error',
-        error instanceof Error ? error : new Error(String(error)),
-      );
-    } finally {
-      this.emit('done');
-    }
+        // Push subdirectories to queue for further exploration
+        for (const entry of entries) {
+          if (entry.isDirectory()) {
+            queue.push({
+              dir: path.join(currentDir, entry.name),
+              depth: depth + 1,
+            });
+          }
+        }
+      };
+
+      checkAndProcess();
+    });
   }
 }

@@ -9,8 +9,10 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "outDir": "dist",
+    "rootDir": "src",
     "verbatimModuleSyntax": true,
-    "sourceMap": true
+    "sourceMap": true,
+    "types": ["node"]
   },
   "include": ["src"]
 }
