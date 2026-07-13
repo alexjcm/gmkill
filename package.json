@@ -25,6 +25,7 @@
   "scripts": {
     "dev": "tsx src/index.tsx",
     "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.build.json --noEmit",
     "prebuild": "rm -rf dist",
     "build": "tsc -p tsconfig.build.json && chmod +x dist/index.js",
     "prepack": "npm run build"
@@ -36,13 +37,12 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@types/node": "^24.0.0",
+    "@types/node": "^24.13.2",
     "@types/react": "19.2.14",
-    "eslint": "^10.3.0",
-    "globals": "^17.6.0",
-    "tsx": "^4.21.0",
-    "typescript": "^6.0.3",
-    "typescript-eslint": "^8.61.1"
+    "eslint": "^10.7.0",
+    "globals": "^17.7.0",
+    "tsx": "^4.23.0",
+    "typescript": "^7.0.2"
   },
   "files": [
     "dist",
